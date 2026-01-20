@@ -1,8 +1,8 @@
-# 1. Start with a Linux machine that has Node.js installed
-FROM node:18-slim
+# USE NODE 20 (Crucial for the new libraries)
+FROM node:20-slim
 
-# 2. Install Google Chrome and fonts (Required for the scraper to work!)
-# This block downloads Chrome and necessary font libraries so screenshots aren't broken.
+# Install Google Chrome Stable and fonts
+# This is required for Puppeteer to work on Linux (Render)
 RUN apt-get update \
     && apt-get install -y wget gnupg \
     && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
@@ -12,20 +12,19 @@ RUN apt-get update \
       --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# 3. Create a folder for our app inside the cloud computer
+# Set up the App Directory
 WORKDIR /usr/src/app
 
-# 4. Copy package files first (to install libraries)
+# Copy package files and install dependencies
 COPY package*.json ./
+# We add --legacy-peer-deps to prevent strict dependency errors during build
+RUN npm install --legacy-peer-deps
 
-# 5. Install the libraries (Express, Puppeteer, etc.)
-RUN npm install
-
-# 6. Copy the rest of your code (server.js, etc.)
+# Copy the rest of your app code
 COPY . .
 
-# 7. Open the door (Port 5000) so the outside world can talk to it
+# Expose the port
 EXPOSE 5000
 
-# 8. The command to start the app
+# Start the server
 CMD [ "node", "server.js" ]
