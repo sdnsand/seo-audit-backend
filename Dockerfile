@@ -1,6 +1,8 @@
-FROM node:20-slim
+# Use Node.js 18
+FROM node:18-slim
 
-# 1. Install Chrome dependencies (Crucial for Render)
+# Install Google Chrome Stable and fonts
+# Required for Puppeteer to work on Linux
 RUN apt-get update \
     && apt-get install -y wget gnupg \
     && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
@@ -10,19 +12,14 @@ RUN apt-get update \
       --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Setup App
+# Setup App
 WORKDIR /usr/src/app
-
-# 3. Install App Dependencies
 COPY package*.json ./
-# Legacy peer deps helps avoid conflicts with different Puppeteer versions
-RUN npm install --legacy-peer-deps
-
-# 4. Copy Source
+RUN npm install
 COPY . .
 
-# 5. Expose Port
+# Expose Port
 EXPOSE 5000
 
-# 6. Start
+# Start Command
 CMD [ "node", "server.js" ]
