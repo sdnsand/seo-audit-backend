@@ -1,1782 +1,299 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Free AI SEO Audit Tool - Professional Website Analysis</title>
-    <meta name="description" content="Get a comprehensive free SEO audit with AI-powered recommendations. Analyze technical SEO, on-page optimization, content quality, and user experience.">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        :root { 
-            --primary: #2563eb; 
-            --primary-dark: #1d4ed8; 
-            --secondary: #64748b; 
-            --success: #10b981; 
-            --warning: #f59e0b; 
-            --danger: #ef4444; 
-            --bg: #f8fafc; 
-            --text: #1e293b; 
-            --border: #e2e8f0;
-            --card-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-        }
-        
-        [data-theme="dark"] { 
-            --primary: #3b82f6; 
-            --primary-dark: #2563eb; 
-            --secondary: #94a3b8; 
-            --success: #22c55e; 
-            --warning: #fbbf24; 
-            --danger: #f87171; 
-            --bg: #0f172a; 
-            --text: #f1f5f9; 
-            --border: #334155;
-            --card-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
-        }
-        
-        * { box-sizing: border-box; }
-        
-        body { 
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
-            background: var(--bg);
-            color: var(--text); 
-            line-height: 1.6; 
-            margin: 0; 
-            padding: 20px;
-            min-height: 100vh;
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
-        
-        body[data-theme="dark"] {
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        }
-        
-        .container { 
-            max-width: 1200px; 
-            margin: 0 auto; 
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            padding: 40px;
-            backdrop-filter: blur(10px);
-            transition: background-color 0.3s ease, box-shadow 0.3s ease;
-        }
-        
-        body[data-theme="dark"] .container {
-            background: rgba(15, 23, 42, 0.95);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
-        }
-        
-        /* Theme Toggle Button */
-        .theme-toggle {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 20px;
-            box-shadow: var(--card-shadow);
-            z-index: 1000;
-            transition: all 0.3s ease;
-        }
-        
-        .theme-toggle:hover {
-            background: var(--primary-dark);
-            transform: scale(1.1);
-        }
-        
-        body[data-theme="dark"] .theme-toggle {
-            background: var(--secondary);
-        }
-        
-        /* Header */
-        .header { 
-            text-align: center; 
-            margin-bottom: 40px; 
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
-            padding: 40px;
-            border-radius: 15px;
-            margin: -40px -40px 40px -40px;
-        }
-        
-        .header h1 { 
-            font-size: 2.5rem; 
-            margin: 0; 
-            font-weight: 800;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .header p { 
-            margin: 10px 0 0 0; 
-            opacity: 0.9;
-            font-size: 1.1rem;
-        }
-        
-        .trust-badges {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 15px;
-            flex-wrap: wrap;
-        }
-        
-        .trust-badge {
-            background: rgba(255,255,255,0.2);
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            backdrop-filter: blur(10px);
-        }
-        
-        /* Input Card */
-        .input-card { 
-            background: white; 
-            padding: 40px; 
-            border-radius: 15px; 
-            box-shadow: var(--card-shadow); 
-            border: 1px solid var(--border);
-            transition: background-color 0.3s ease;
-        }
-        
-        body[data-theme="dark"] .input-card {
-            background: rgba(30, 41, 59, 0.8);
-            border-color: var(--border);
-        }
-        
-        .input-group {
-            margin-bottom: 20px;
-        }
-        
-        .input-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: var(--text);
-        }
-        
-        input { 
-            padding: 15px; 
-            border: 2px solid var(--border); 
-            border-radius: 8px; 
-            font-size: 1rem; 
-            width: 100%; 
-            transition: border-color 0.3s, background-color 0.3s;
-            background: white;
-            color: var(--text);
-        }
-        
-        body[data-theme="dark"] input {
-            background: rgba(15, 23, 42, 0.8);
-            color: var(--text);
-        }
-        
-        input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        }
-        
-        .form-row {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        
-        button { 
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark)); 
-            color: white; 
-            border: none; 
-            padding: 15px 30px; 
-            border-radius: 8px; 
-            font-weight: bold; 
-            cursor: pointer; 
-            font-size: 1.1rem; 
-            transition: all 0.3s;
-            box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);
-            width: 100%;
-        }
-        
-        button:hover { 
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(37, 99, 235, 0.4);
-        }
-        
-        button:active {
-            transform: translateY(0);
-        }
-        
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        /* Checkbox styling */
-        .checkbox-group {
-            display: flex;
-            align-items: flex-start;
-            margin: 20px 0;
-            padding: 15px;
-            background: #f0f9ff;
-            border-radius: 8px;
-            border-left: 4px solid var(--primary);
-        }
-        
-        .checkbox-group input[type="checkbox"] {
-            width: auto;
-            margin-right: 10px;
-            margin-top: 2px;
-        }
-        
-        .checkbox-group label {
-            font-size: 0.9rem;
-            color: #475569;
-            cursor: pointer;
-        }
-        
-        /* Loader */
-        .loader { 
-            display: none; 
-            text-align: center; 
-            margin: 40px 0; 
-            padding: 40px;
-            background: white;
-            border-radius: 15px;
-            box-shadow: var(--card-shadow);
-        }
-        
-        .loader-spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .loader-text {
-            font-size: 1.1rem;
-            color: var(--primary);
-            font-weight: 600;
-        }
-        
-        .loader-steps {
-            margin-top: 15px;
-            font-size: 0.9rem;
-            color: var(--secondary);
-        }
-        
-        /* Results Grid */
-        .hidden { display: none; }
-        
-        .results-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .results-header h2 {
-            font-size: 2rem;
-            color: var(--primary);
-            margin-bottom: 10px;
-        }
-        
-        .audit-meta {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            flex-wrap: wrap;
-            font-size: 0.9rem;
-            color: var(--secondary);
-        }
-        
-        .grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
-            gap: 25px; 
-            margin-top: 30px; 
-        }
-        
-        .card { 
-            background: white; 
-            padding: 25px; 
-            border-radius: 15px; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08); 
-            border: 1px solid var(--border);
-            transition: transform 0.2s, box-shadow 0.2s, background-color 0.3s ease;
-        }
-        
-        body[data-theme="dark"] .card {
-            background: rgba(30, 41, 59, 0.8);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
-        
-        .card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-        }
-        
-        .card h3 {
-            margin-top: 0;
-            color: var(--text);
-            border-bottom: 2px solid var(--border);
-            padding-bottom: 10px;
-        }
-        
-        .score-big { 
-            font-size: 3.5rem; 
-            font-weight: 800; 
-            display: block; 
-            text-align: center; 
-            background: linear-gradient(135deg, var(--primary), var(--success));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin: 20px 0;
-        }
-        
-        .score-label {
-            text-align: center;
-            font-size: 1.1rem;
-            color: var(--secondary);
-            margin-bottom: 20px;
-        }
-        
-        /* Metrics Grid */
-        .metric-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-        }
-        
-        .metric-item {
-            text-align: center;
-            padding: 15px;
-            background: #f8fafc;
-            border-radius: 8px;
-            transition: background-color 0.3s ease;
-        }
-        
-        body[data-theme="dark"] .metric-item {
-            background: rgba(15, 23, 42, 0.6);
-        }
-        
-        .metric-value {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: var(--primary);
-        }
-        
-        .metric-label {
-            font-size: 0.9rem;
-            color: var(--secondary);
-            margin-top: 5px;
-        }
-        
-        /* Chart Container */
-        .chart-container {
-            position: relative;
-            height: 300px;
-            margin: 20px 0;
-        }
-        
-        /* Badges */
-        .badge { 
-            display: inline-block; 
-            padding: 6px 12px; 
-            border-radius: 20px; 
-            font-size: 0.8rem; 
-            font-weight: bold; 
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .badge-critical { background: #fee2e2; color: #991b1b; }
-        .badge-medium { background: #fef3c7; color: #92400e; }
-        .badge-quick-win { background: #dcfce7; color: #166534; }
-        .badge-success { background: #dcfce7; color: #166534; }
-        .badge-warning { background: #fef3c7; color: #92400e; }
-        .badge-danger { background: #fee2e2; color: #991b1b; }
-        
-        body[data-theme="dark"] .badge-critical { background: #7f1d1d; color: #fca5a5; }
-        body[data-theme="dark"] .badge-medium { background: #78350f; color: #fde68a; }
-        body[data-theme="dark"] .badge-quick-win { background: #14532d; color: #86efac; }
-        body[data-theme="dark"] .badge-success { background: #14532d; color: #86efac; }
-        body[data-theme="dark"] .badge-warning { background: #78350f; color: #fde68a; }
-        body[data-theme="dark"] .badge-danger { background: #7f1d1d; color: #fca5a5; }
+import * as React from "react"
+import { addPropertyControls, ControlType } from "framer"
+import { jsPDF } from "jspdf"
 
-        /* Recommendations */
-        .rec-item { 
-            padding: 25px; 
-            border-left: 5px solid #ddd; 
-            background: #fff; 
-            margin-bottom: 15px; 
-            border-radius: 0 10px 10px 0; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.06);
-            transition: transform 0.2s, background-color 0.3s ease;
-        }
-        
-        body[data-theme="dark"] .rec-item {
-            background: rgba(30, 41, 59, 0.6);
-            border-left-color: #555;
-        }
-        
-        .rec-item:hover {
-            transform: translateX(5px);
-        }
-        
-        .rec-critical { border-color: var(--danger); background: #fef2f2; }
-        .rec-medium { border-color: var(--warning); background: #fffbeb; }
-        .rec-quick-win { border-color: var(--success); background: #f0fdf4; }
-        
-        body[data-theme="dark"] .rec-critical { border-color: #dc2626; background: rgba(127, 29, 29, 0.3); }
-        body[data-theme="dark"] .rec-medium { border-color: #d97706; background: rgba(120, 53, 15, 0.3); }
-        body[data-theme="dark"] .rec-quick-win { border-color: #16a34a; background: rgba(20, 83, 45, 0.3); }
-        
-        .rec-header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: flex-start;
-            margin-bottom: 10px; 
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        
-        .rec-title {
-            font-weight: bold;
-            font-size: 1.1rem;
-            color: var(--text);
-            flex: 1;
-        }
-        
-        .rec-category {
-            font-size: 0.85rem;
-            color: var(--secondary);
-            font-style: italic;
-        }
-        
-        .rec-impact {
-            background: rgba(0,0,0,0.05);
-            padding: 10px;
-            border-radius: 6px;
-            margin: 10px 0;
-            font-size: 0.9rem;
-            transition: background-color 0.3s ease;
-        }
-        
-        .rec-impact strong {
-            color: var(--primary);
-        }
-        
-        .rec-fix {
-            font-size: 0.95rem;
-            line-height: 1.6;
-            color: #334155;
-            transition: color 0.3s ease;
-        }
+export default function SeoAuditTool(props) {
+    // --- STATE ---
+    const [url, setUrl] = React.useState("")
+    const [email, setEmail] = React.useState("")
+    const [consent, setConsent] = React.useState(false)
+    const [loading, setLoading] = React.useState(false)
+    const [report, setReport] = React.useState(null)
+    const [error, setError] = React.useState("")
+    const [theme, setTheme] = React.useState("dark")
 
-        .rec-problem {
-            background: rgba(239, 68, 68, 0.1);
-            padding: 10px;
-            border-radius: 6px;
-            margin: 10px 0;
-            font-size: 0.9rem;
-            border-left: 3px solid var(--danger);
-            transition: background-color 0.3s ease;
-        }
-        
-        body[data-theme="dark"] .rec-impact {
-            background: rgba(255, 255, 255, 0.1);
-        }
-        
-        body[data-theme="dark"] .rec-fix {
-            color: #cbd5e1;
-        }
-        
-        body[data-theme="dark"] .rec-problem {
-            background: rgba(239, 68, 68, 0.2);
-        }
-        
-        /* Metrics Details Styling */
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
+    // --- ACTIONS ---
+    const toggleTheme = () => setTheme(prev => prev === "dark" ? "light" : "dark")
 
-        .metric-detail {
-            background: #f8fafc;
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid var(--primary);
-            transition: background-color 0.3s ease;
-        }
+    const runAudit = async () => {
+        if (!url) return setError("Please enter a website URL")
+        if (!consent) return setError("Please consent to data processing")
         
-        body[data-theme="dark"] .metric-detail {
-            background: rgba(15, 23, 42, 0.6);
-        }
+        let cleanUrl = url.trim()
+        if (!cleanUrl.startsWith("http")) cleanUrl = "https://" + cleanUrl
 
-        .metric-detail-label {
-            font-size: 0.85rem;
-            color: var(--secondary);
-            margin-bottom: 5px;
-        }
+        setLoading(true); setError(""); setReport(null)
 
-        .metric-detail-value {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        .metrics-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-
-        .metrics-table th,
-        .metrics-table td {
-            padding: 10px;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .metrics-table th {
-            background: #f1f5f9;
-            font-weight: 600;
-            color: var(--text);
-            transition: background-color 0.3s ease;
-        }
-        
-        body[data-theme="dark"] .metrics-table th {
-            background: rgba(30, 41, 59, 0.8);
-        }
-
-        .status-good { color: var(--success); }
-        .status-warning { color: var(--warning); }
-        .status-error { color: var(--danger); }
-        
-        /* Action Buttons */
-        .action-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 30px;
-            flex-wrap: wrap;
-        }
-        
-        .btn-secondary { 
-            background: var(--secondary); 
-            color: white;
-            flex: 1;
-            min-width: 200px;
-        }
-        
-        .btn-success {
-            background: var(--success);
-            color: white;
-            flex: 1;
-            min-width: 200px;
-        }
-        
-        /* Footer */
-        .disclaimer {
-            text-align: center;
-            margin-top: 40px;
-            padding: 20px;
-            background: #f8fafc;
-            border-radius: 10px;
-            font-size: 0.9rem;
-            color: var(--secondary);
-            border-left: 4px solid var(--warning);
-            transition: background-color 0.3s ease;
-        }
-        
-        body[data-theme="dark"] .disclaimer {
-            background: rgba(15, 23, 42, 0.6);
-            border-left-color: #d97706;
-        }
-        
-        /* Mobile Responsive */
-        @media (max-width: 768px) {
-            .container {
-                padding: 20px;
-                margin: 10px;
-                border-radius: 15px;
-            }
+        try {
+            // Remove trailing slash from backend URL if present
+            const backend = props.backendUrl.replace(/\/$/, "")
             
-            .header {
-                padding: 30px 20px;
-                margin: -20px -20px 30px -20px;
+            const res = await fetch(`${backend}/api/audit`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: cleanUrl, email }),
+            })
+
+            // Handle server waking up (common on free tier)
+            const contentType = res.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error("Server is waking up. Please try again in 30 seconds.");
             }
-            
-            .header h1 {
-                font-size: 2rem;
-            }
-            
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-            
-            .grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .metric-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .action-buttons {
-                flex-direction: column;
-            }
-            
-            .rec-header {
-                flex-direction: column;
-            }
+
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || "Audit failed")
+            setReport(data)
+        } catch (err) {
+            setError(err.message)
+        } finally {
+            setLoading(false)
         }
+    }
+
+    const downloadPDF = () => {
+        if (!report) return
+        const doc = new jsPDF()
+        let y = 20
         
-        /* Loading Animation */
-        .pulse {
-            animation: pulse 2s infinite;
-        }
+        doc.setFontSize(22); doc.setTextColor(37, 99, 235)
+        doc.text("SEO Audit Report", 20, y); y += 15
         
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.7; }
-            100% { opacity: 1; }
-        }
-    </style>
-</head>
-<body data-theme="dark">
+        doc.setFontSize(11); doc.setTextColor(0, 0, 0)
+        doc.text(`Target: ${report.url}`, 20, y); y += 7
+        doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, y); y += 7
+        doc.text(`Score: ${report.report.health_score}/100`, 20, y); y += 15
+
+        doc.setFontSize(14); doc.text("Executive Summary:", 20, y); y += 10
+        doc.setFontSize(10)
+        const summary = doc.splitTextToSize(report.report.summary, 170)
+        doc.text(summary, 20, y); y += (summary.length * 5) + 15
+
+        doc.setFontSize(14); doc.text("Top Actions:", 20, y); y += 10
+        report.report.recommendations.forEach(rec => {
+            if(y > 270) { doc.addPage(); y = 20; }
+            doc.setFontSize(11); doc.setFont("helvetica", "bold")
+            doc.text(`[${rec.priority}] ${rec.issue}`, 20, y); y += 6
+            doc.setFont("helvetica", "normal"); doc.setFontSize(10)
+            const fix = doc.splitTextToSize(`Fix: ${rec.fix}`, 170)
+            doc.text(fix, 20, y); y += (fix.length * 5) + 8
+        })
+        doc.save(`audit-${new URL(report.url).hostname}.pdf`)
+    }
+
+    // --- HELPER COMPONENTS ---
+    const MetricBox = ({ label, value }) => (
+        <div className="metric-item">
+            <div className="metric-value">{value}</div>
+            <div className="metric-label">{label}</div>
+        </div>
+    )
+
+    const DetailRow = ({ label, value, status }) => (
+        <div className="metric-detail">
+            <div className="metric-detail-label">{label}</div>
+            <div className={`metric-detail-value ${status === 'good' ? 'status-good' : status === 'error' ? 'status-error' : ''}`}>{value}</div>
+        </div>
+    )
+
+    return (
+        <div className="seo-root" data-theme={theme}>
+            <style>{cssStyles}</style>
+
+            <button className="theme-toggle" onClick={toggleTheme}>
+                {theme === "dark" ? "☀️" : "🌙"}
+            </button>
+
+            <div className="container">
+                <div className="header">
+                    <h1>🚀 Free AI SEO Audit Tool</h1>
+                    <div className="trust-badges">
+                        <span>✅ Free</span><span>🤖 AI Powered</span><span>🔒 Secure</span>
+                    </div>
+                </div>
+
+                <div className="input-card">
+                    <div className="form-row">
+                        <div className="input-group">
+                            <label>Website URL *</label>
+                            <input type="text" placeholder="https://example.com" value={url} onChange={e => setUrl(e.target.value)} />
+                        </div>
+                        <div className="input-group">
+                            <label>Email (Optional)</label>
+                            <input type="email" placeholder="report@email.com" value={email} onChange={e => setEmail(e.target.value)} />
+                        </div>
+                    </div>
+                    <div className="checkbox-group">
+                        <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} />
+                        <label>I consent to data processing for this audit.</label>
+                    </div>
+                    {error && <div className="error-banner">{error}</div>}
+                    <button className="audit-btn" onClick={runAudit} disabled={loading}>
+                        {loading ? "⏳ Analyzing (Wait ~30s)..." : "🔍 Run Audit"}
+                    </button>
+                </div>
+
+                {loading && (
+                    <div className="loader">
+                        <div className="loader-spinner"></div>
+                        <div className="loader-text">Scanning site & generating report...</div>
+                    </div>
+                )}
+
+                {report && !loading && (
+                    <div className="results-container">
+                        <div className="results-header">
+                            <h2>📊 Audit Results</h2>
+                            <small>{report.domain} • {new Date(report.timestamp).toLocaleDateString()}</small>
+                        </div>
+
+                        <div className="grid">
+                            {/* SCORE */}
+                            <div className="card text-center">
+                                <h3>Health Score</h3>
+                                <div className="score-big" style={{
+                                    background: `conic-gradient(${report.report.health_score >= 80 ? '#10b981' : report.report.health_score >= 50 ? '#f59e0b' : '#ef4444'} ${report.report.health_score * 3.6}deg, var(--border) 0deg)`
+                                }}>
+                                    <div className="score-inner">{report.report.health_score}</div>
+                                </div>
+                            </div>
+
+                            {/* METRICS */}
+                            <div className="card">
+                                <h3>📈 Key Metrics</h3>
+                                <div className="metric-grid">
+                                    <MetricBox label="Speed" value={report.metrics.performance} />
+                                    <MetricBox label="SEO" value={report.metrics.seo} />
+                                    <MetricBox label="Mobile" value={report.metrics.mobileScore} />
+                                    <MetricBox label="Tech" value={report.metrics.technical?.performance || 80} />
+                                </div>
+                            </div>
+
+                            {/* CONTENT */}
+                            <div className="card">
+                                <h3>📝 Content Stats</h3>
+                                <div className="metric-grid">
+                                    <MetricBox label="H1 Tags" value={report.structure.h1Count} />
+                                    <MetricBox label="Missing Alt" value={report.structure.images.missingAlt} />
+                                    <MetricBox label="Words" value={report.structure.wordCount} />
+                                    <MetricBox label="Readability" value={report.structure.readabilityScore} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* TECH DEEP DIVE */}
+                        <div className="card mt-30">
+                            <h3>🔧 Technical Deep Dive</h3>
+                            <div className="metrics-grid">
+                                <DetailRow label="LCP Speed" value={report.metrics.technical.largestContentfulPaint?.displayValue || "N/A"} />
+                                <DetailRow label="SSL Secure" value={report.metrics.security?.httpsUsed ? "Yes" : "No"} status={report.metrics.security?.httpsUsed ? "good" : "error"} />
+                                <DetailRow label="Robots.txt" value={report.structure.robotsTxt?.exists ? "Found" : "Missing"} status={report.structure.robotsTxt?.exists ? "good" : "error"} />
+                                <DetailRow label="Sitemap" value={report.structure.sitemap?.found ? "Found" : "Missing"} status={report.structure.sitemap?.found ? "good" : "error"} />
+                            </div>
+                        </div>
+
+                        {/* SOCIAL & KEYWORDS */}
+                        <div className="grid mt-30">
+                            <div className="card">
+                                <h3>🔑 Top Keywords</h3>
+                                <div className="tags">
+                                    {report.structure.keywordAnalysis?.topKeywords?.slice(0, 6).map((kw, i) => (
+                                        <span key={i} className="tag">{kw.word} ({kw.density}%)</span>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="card">
+                                <h3>🌐 Social Graph</h3>
+                                <DetailRow label="OG Title" value={report.structure.openGraph?.found ? "Found" : "Missing"} status={report.structure.openGraph?.found ? "good" : "error"} />
+                                <DetailRow label="Twitter Card" value={report.structure.openGraph?.twitter?.card ? "Present" : "Missing"} status={report.structure.openGraph?.twitter?.card ? "good" : "error"} />
+                            </div>
+                        </div>
+
+                        {/* AI SUMMARY */}
+                        <div className="card mt-30">
+                            <h3>🤖 AI Executive Summary</h3>
+                            <p style={{lineHeight: 1.6, opacity: 0.9}}>{report.report.summary}</p>
+                        </div>
+
+                        {/* RECOMMENDATIONS */}
+                        <div className="mt-40">
+                            <h3>🎯 Action Plan</h3>
+                            {report.report.recommendations.map((rec, i) => (
+                                <div key={i} className={`rec-item rec-${rec.priority.toLowerCase().replace(' ', '-')}`}>
+                                    <div className="rec-header">
+                                        <strong>{rec.issue}</strong>
+                                        <span className={`badge badge-${rec.priority.toLowerCase().replace(' ', '-')}`}>{rec.priority}</span>
+                                    </div>
+                                    <div className="rec-fix">💡 {rec.fix || rec.how_to_fix}</div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="action-buttons">
+                            <button className="btn-secondary" onClick={downloadPDF}>📄 Download Report</button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
+
+addPropertyControls(SeoAuditTool, {
+    backendUrl: {
+        type: ControlType.String,
+        title: "Backend URL",
+        defaultValue: "https://seo-audit-backend-g6u3.onrender.com",
+        placeholder: "https://seo-audit-backend-g6u3.onrender.com"
+    },
+})
+
+const cssStyles = `
+    [data-theme="light"] { --primary: #2563eb; --bg: #f8fafc; --card: #fff; --text: #1e293b; --border: #e2e8f0; }
+    [data-theme="dark"] { --primary: #3b82f6; --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; --border: #334155; }
     
-    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
-        <span id="themeIcon">🌙</span>
-    </button>
+    .seo-root { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; width: 100%; transition: 0.3s; box-sizing: border-box; }
+    .container { max-width: 900px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .header h1 { margin: 0; color: var(--primary); font-size: 2rem; }
+    .trust-badges { display: flex; gap: 10px; justify-content: center; margin-top: 10px; font-size: 0.8em; opacity: 0.8; }
+    
+    .input-card { background: var(--card); padding: 25px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+    input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 1rem; }
+    .audit-btn { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .audit-btn:hover { opacity: 0.9; transform: translateY(-2px); }
+    .audit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+    .theme-toggle { position: absolute; top: 20px; right: 20px; background: none; border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 1.2rem; }
+    .error-banner { background: #ef4444; color: white; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-weight: bold; }
 
-    <div class="container">
-        <div class="header">
-            <h1>🚀 Free AI SEO Audit Tool</h1>
-            <p>Get comprehensive website analysis with AI-powered recommendations</p>
-            <div class="trust-badges">
-                <span class="trust-badge">✅ 100% Free</span>
-                <span class="trust-badge">🤖 AI Powered</span>
-                <span class="trust-badge">🔒 GDPR Compliant</span>
-                <span class="trust-badge">📱 Mobile Friendly</span>
-            </div>
-        </div>
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 30px; }
+    .card { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); }
+    .text-center { text-align: center; }
+    .score-big { width: 100px; height: 100px; border-radius: 50%; margin: 15px auto; display: flex; align-items: center; justify-content: center; }
+    .score-inner { width: 85px; height: 85px; background: var(--card); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 800; }
+    
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .metric-item { background: var(--bg); padding: 10px; border-radius: 8px; text-align: center; }
+    .metric-value { font-size: 1.2rem; font-weight: 700; color: var(--primary); }
+    .metric-label { font-size: 0.75rem; opacity: 0.7; text-transform: uppercase; }
 
-        <div class="input-card">
-            <div class="form-row">
-                <div class="input-group">
-                    <label for="urlInput">Website URL *</label>
-                    <input type="text" id="urlInput" placeholder="https://example.com" />
-                </div>
-                <div class="input-group">
-                    <label for="emailInput">Email (Optional)</label>
-                    <input type="email" id="emailInput" placeholder="your@email.com" />
-                </div>
-            </div>
-            
-            <div class="checkbox-group">
-                <input type="checkbox" id="dataConsent" />
-                <label for="dataConsent">
-                    <strong>I consent to data processing</strong> - We analyze your website in real-time and don't store your data unless you opt-in. This audit is GDPR compliant and 100% free.
-                </label>
-            </div>
-            
-            <button id="auditButton" onclick="runAudit()">🔍 Run Free SEO Audit</button>
-        </div>
+    .metric-detail { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .status-good { color: #10b981; } .status-error { color: #ef4444; }
 
-        <div id="loader" class="loader">
-            <div class="loader-spinner"></div>
-            <div class="loader-text">Analyzing your website...</div>
-            <div class="loader-steps">
-                <div>🔧 Checking technical SEO...</div>
-                <div>📊 Analyzing page performance...</div>
-                <div>📝 Evaluating content quality...</div>
-                <div>🤖 Generating AI recommendations...</div>
-            </div>
-        </div>
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag { background: rgba(37, 99, 235, 0.1); color: var(--primary); padding: 4px 10px; border-radius: 15px; font-size: 0.8rem; }
 
-        <div id="results" class="hidden">
-            <div class="results-header">
-                <h2>📊 SEO Audit Results</h2>
-                <div class="audit-meta">
-                    <span>🌐 <strong id="auditedUrl">-</strong></span>
-                    <span>⏱️ <strong id="auditDuration">-</strong></span>
-                    <span>📅 <strong id="auditDate">-</strong></span>
-                </div>
-            </div>
+    .rec-item { padding: 15px; margin-bottom: 10px; background: var(--card); border-left: 4px solid #ccc; border-radius: 6px; }
+    .rec-critical { border-color: #ef4444; } .rec-medium { border-color: #f59e0b; }
+    .rec-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .badge { padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; background: rgba(0,0,0,0.1); text-transform: uppercase; }
+    .rec-fix { font-size: 0.9rem; opacity: 0.9; margin-top: 5px; }
 
-            <div class="grid">
-                <div class="card" style="text-align: center;">
-                    <h3>Overall SEO Health Score</h3>
-                    <span id="healthScoreCircle" class="score-big">-</span>
-                    <div class="score-label">Out of 100</div>
-                    <canvas id="scoreChart" width="200" height="200"></canvas>
-                </div>
-                
-                <div class="card">
-                    <h3>📈 Performance Metrics</h3>
-                    <div class="metric-grid">
-                        <div class="metric-item">
-                            <div id="perfScore" class="metric-value">-</div>
-                            <div class="metric-label">Performance</div>
-                        </div>
-                        <div class="metric-item">
-                            <div id="seoScore" class="metric-value">-</div>
-                            <div class="metric-label">SEO Score</div>
-                        </div>
-                        <div class="metric-item">
-                            <div id="mobileScore" class="metric-value">-</div>
-                            <div class="metric-label">Mobile Score</div>
-                        </div>
-                        <div class="metric-item">
-                            <div id="techScore" class="metric-value">-</div>
-                            <div class="metric-label">Technical SEO</div>
-                        </div>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="categoryChart"></canvas>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <h3>📝 Content Analysis</h3>
-                    <div class="metric-grid">
-                        <div class="metric-item">
-                            <div id="h1Status" class="metric-value">-</div>
-                            <div class="metric-label">H1 Tags</div>
-                        </div>
-                        <div class="metric-item">
-                            <div id="altStatus" class="metric-value">-</div>
-                            <div class="metric-label">Images Missing Alt</div>
-                        </div>
-                        <div class="metric-item">
-                            <div id="titleLength" class="metric-value">-</div>
-                            <div class="metric-label">Title Length</div>
-                        </div>
-                        <div class="metric-item">
-                            <div id="descLength" class="metric-value">-</div>
-                            <div class="metric-label">Meta Desc Length</div>
-                        </div>
-                    </div>
-                    <p style="margin-top: 15px;"><strong>Social Presence:</strong> <span id="socialStatus">-</span></p>
-                    <p><strong>Link Structure:</strong> <span id="linkStructure">-</span></p>
-                </div>
-            </div>
-
-            <!-- Technical SEO Details -->
-            <div class="card" style="margin-top: 30px;">
-                <h3>🔧 Technical SEO Details</h3>
-                <div id="technicalSEO"></div>
-            </div>
-
-            <!-- On-Page SEO Details -->
-            <div class="card" style="margin-top: 30px;">
-                <h3>📝 On-Page SEO Details</h3>
-                <div id="onPageSEO"></div>
-            </div>
-
-            <!-- Content Quality Details -->
-            <div class="card" style="margin-top: 30px;">
-                <h3>📊 Content Quality Analysis</h3>
-                <div id="contentQuality"></div>
-            </div>
-
-            <!-- Indexability & Security -->
-            <div class="card" style="margin-top: 30px;">
-                <h3>🔒 Indexability & Security</h3>
-                <div id="indexabilitySecurity"></div>
-            </div>
-
-            <!-- Domain & Off-Page Signals -->
-            <div class="card" style="margin-top: 30px;">
-                <h3>🌐 Domain & Off-Page Signals</h3>
-                <div id="domainOffPage"></div>
-            </div>
-
-            <div class="card" style="margin-top: 30px;">
-                <h3>🤖 AI Executive Summary</h3>
-                <p id="summaryText" style="font-size: 1.1rem; line-height: 1.7; color: var(--text);">...</p>
-            </div>
-
-            <div style="margin-top: 40px;">
-                <h2>🎯 Action Plan - Prioritized Recommendations</h2>
-                <div id="recList"></div>
-            </div>
-
-            <div class="action-buttons">
-                <button onclick="downloadPDF()" class="btn-secondary">📄 Download PDF Report</button>
-                <button onclick="copyRecommendations()" class="btn-success">📋 Copy Recommendations</button>
-            </div>
-        </div>
-        
-        <div class="disclaimer">
-            <strong>⚠️ Disclaimer:</strong> This is an AI-generated SEO audit provided as a free service. 
-            While we strive for accuracy, recommendations should be validated by a qualified SEO professional 
-            before implementation. Results are based on publicly available data and automated analysis.
-        </div>
-    </div>
-
-    <script>
-        let lastReport = null;
-        let scoreChart = null;
-        let categoryChart = null;
-
-        // Theme Toggle Function
-        function toggleTheme() {
-            const body = document.body;
-            const currentTheme = body.getAttribute('data-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            const themeIcon = document.getElementById('themeIcon');
-            
-            body.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            
-            // Update icon
-            themeIcon.textContent = newTheme === 'dark' ? '🌙' : '☀️';
-        }
-
-        // Initialize tooltips and interactions
-        document.addEventListener('DOMContentLoaded', () => {
-            // Load saved theme or use dark by default
-            const savedTheme = localStorage.getItem('theme') || 'dark';
-            document.body.setAttribute('data-theme', savedTheme);
-            document.getElementById('themeIcon').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
-            
-            // Add enter key support for URL input
-            // Add enter key support for URL input
-            document.getElementById('urlInput').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') runAudit();
-            });
-            
-            // Add input validation
-            document.getElementById('urlInput').addEventListener('input', (e) => {
-                const button = document.getElementById('auditButton');
-                button.disabled = !e.target.value.trim();
-            });
-        });
-
-        async function runAudit() {
-            const url = document.getElementById('urlInput').value.trim();
-            const email = document.getElementById('emailInput').value.trim();
-            const consent = document.getElementById('dataConsent').checked;
-            
-            if(!url) return showError("Please enter a website URL!");
-            if(!consent) return showError("Please consent to data processing for GDPR compliance.");
-            
-            // Validate email format if provided
-            if(email && !isValidEmail(email)) {
-                return showError("Please enter a valid email address or leave the field empty.");
-            }
-            
-            // Store consent in session
-            sessionStorage.setItem('gdprConsent', 'true');
-
-            // Update UI
-            const button = document.getElementById('auditButton');
-            const loader = document.getElementById('loader');
-            const results = document.getElementById('results');
-            
-            button.disabled = true;
-            button.textContent = '⏳ Analyzing...';
-            loader.style.display = 'block';
-            results.classList.add('hidden');
-
-            try {
-                const body = JSON.stringify({ url, email, consent: true });
-                
-                const res = await fetch('/api/audit', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: body
-                });
-                
-                if (!res.ok) {
-                    const errorData = await res.json();
-                    throw new Error(errorData.error || 'Audit failed');
-                }
-                
-                const data = await res.json();
-                lastReport = data;
-                
-                await displayResults(data);
-                results.classList.remove('hidden');
-                
-                // Scroll to results
-                results.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                
-                if(email) {
-                    showSuccess(`📧 Report sent to ${email}`);
-                }
-
-            } catch (e) {
-                showError("Audit failed: " + e.message);
-            } finally {
-                button.disabled = false;
-                button.textContent = '🔍 Run Free SEO Audit';
-                loader.style.display = 'none';
-            }
-        }
-
-        async function displayResults(data) {
-            // Update meta information
-            document.getElementById('auditedUrl').textContent = data.url;
-            document.getElementById('auditDuration').textContent = data.audit_duration || 'Unknown';
-            document.getElementById('auditDate').textContent = new Date(data.timestamp).toLocaleDateString();
-            
-            // Update main scores
-            document.getElementById('healthScoreCircle').textContent = data.report.health_score;
-            document.getElementById('perfScore').textContent = data.metrics.performance;
-            document.getElementById('seoScore').textContent = data.metrics.seo;
-            document.getElementById('mobileScore').textContent = data.metrics.mobileScore;
-            
-            // Calculate technical SEO score if not provided
-            const techScore = data.report.category_scores?.technical_seo || calculateTechnicalScore(data.metrics);
-            document.getElementById('techScore').textContent = techScore;
-            
-            // Update content analysis
-            const h1Count = data.structure.h1Count;
-            document.getElementById('h1Status').textContent = h1Count === 1 ? '✅ Perfect' : `⚠️ ${h1Count} found`;
-            document.getElementById('h1Status').style.color = h1Count === 1 ? '#10b981' : '#ef4444';
-            
-            const missingAlt = data.structure.images.missingAlt;
-            document.getElementById('altStatus').textContent = missingAlt === 0 ? '✅ None' : `⚠️ ${missingAlt}`;
-            document.getElementById('altStatus').style.color = missingAlt === 0 ? '#10b981' : '#ef4444';
-            
-            // Title and description analysis
-            const titleLen = data.structure.title?.length || 0;
-            const descLen = data.structure.description?.length || 0;
-            document.getElementById('titleLength').textContent = `${titleLen} chars`;
-            document.getElementById('titleLength').style.color = titleLen >= 30 && titleLen <= 60 ? '#10b981' : '#f59e0b';
-            
-            document.getElementById('descLength').textContent = `${descLen} chars`;
-            document.getElementById('descLength').style.color = descLen >= 120 && descLen <= 160 ? '#10b981' : '#f59e0b';
-            
-            document.getElementById('socialStatus').textContent = data.structure.socials || 'None detected';
-            document.getElementById('linkStructure').textContent = 
-                `${data.structure.links.internal} Internal / ${data.structure.links.external} External`;
-            
-            // Update summary
-            document.getElementById('summaryText').textContent = data.report.summary;
-            
-            // Create charts
-            createScoreChart(data.report.health_score);
-            createCategoryChart(data.report.category_scores || {
-                technical_seo: techScore,
-                on_page_seo: data.metrics.seo,
-                content_quality: 75, // Default if not calculated
-                user_experience: data.metrics.mobileScore
-            });
-            
-            // Display recommendations
-            displayRecommendations(data.report.recommendations);
-            
-            // Display detailed metrics
-            displayTechnicalSEO(data);
-            displayOnPageSEO(data);
-            displayContentQuality(data);
-            displayIndexabilitySecurity(data);
-            displayDomainOffPage(data);
-        }
-
-        function displayTechnicalSEO(data) {
-            const container = document.getElementById('technicalSEO');
-            const tech = data.metrics.technical;
-            
-            let html = '<div class="metrics-grid">';
-            
-            // Core Web Vitals
-            if (tech.firstContentfulPaint) {
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">First Contentful Paint</div>
-                    <div class="metric-detail-value">${tech.firstContentfulPaint.displayValue || 'N/A'}</div>
-                </div>`;
-            }
-            
-            if (tech.largestContentfulPaint) {
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Largest Contentful Paint</div>
-                    <div class="metric-detail-value">${tech.largestContentfulPaint.displayValue || 'N/A'}</div>
-                </div>`;
-            }
-            
-            if (tech.cumulativeLayoutShift) {
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Cumulative Layout Shift</div>
-                    <div class="metric-detail-value">${tech.cumulativeLayoutShift.displayValue || 'N/A'}</div>
-                </div>`;
-            }
-            
-            if (tech.totalBlockingTime) {
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Total Blocking Time</div>
-                    <div class="metric-detail-value">${tech.totalBlockingTime.displayValue || 'N/A'}</div>
-                </div>`;
-            }
-            
-            if (tech.speedIndex) {
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Speed Index</div>
-                    <div class="metric-detail-value">${tech.speedIndex.displayValue || 'N/A'}</div>
-                </div>`;
-            }
-            
-            if (tech.timeToInteractive) {
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Time to Interactive</div>
-                    <div class="metric-detail-value">${tech.timeToInteractive.displayValue || 'N/A'}</div>
-                </div>`;
-            }
-            
-            if (tech.timeToFirstByte) {
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Time to First Byte</div>
-                    <div class="metric-detail-value">${tech.timeToFirstByte.displayValue || 'N/A'}</div>
-                </div>`;
-            }
-            
-            html += '</div>';
-            
-            // Resource Sizes
-            if (tech.resourceSizes) {
-                html += '<h4 style="margin-top: 30px; margin-bottom: 15px;">Resource Breakdown</h4>';
-                html += '<div class="metrics-grid">';
-                if (tech.resourceSizes.js) {
-                    html += `<div class="metric-detail">
-                        <div class="metric-detail-label">JavaScript</div>
-                        <div class="metric-detail-value">${Math.round(tech.resourceSizes.js.size / 1024)}KB (${tech.resourceSizes.js.count} files)</div>
-                    </div>`;
-                }
-                if (tech.resourceSizes.css) {
-                    html += `<div class="metric-detail">
-                        <div class="metric-detail-label">CSS</div>
-                        <div class="metric-detail-value">${Math.round(tech.resourceSizes.css.size / 1024)}KB (${tech.resourceSizes.css.count} files)</div>
-                    </div>`;
-                }
-                if (tech.resourceSizes.images) {
-                    html += `<div class="metric-detail">
-                        <div class="metric-detail-label">Images</div>
-                        <div class="metric-detail-value">${Math.round(tech.resourceSizes.images.size / 1024)}KB (${tech.resourceSizes.images.count} files)</div>
-                    </div>`;
-                }
-                if (tech.resourceSizes.total) {
-                    html += `<div class="metric-detail">
-                        <div class="metric-detail-label">Total Page Size</div>
-                        <div class="metric-detail-value">${Math.round(tech.resourceSizes.total / 1024)}KB</div>
-                    </div>`;
-                }
-                html += '</div>';
-            }
-            
-            html += `<p style="margin-top: 20px;"><strong>Network Requests:</strong> ${tech.networkRequests || 0}</p>`;
-            html += `<p><strong>Render Blocking Resources:</strong> ${tech.renderBlockingResources || 0}</p>`;
-            html += `<p><strong>DOM Size:</strong> ${tech.domSize?.displayValue || 'N/A'}</p>`;
-            
-            container.innerHTML = html;
-        }
-
-        function displayOnPageSEO(data) {
-            const container = document.getElementById('onPageSEO');
-            const structure = data.structure;
-            
-            let html = '<div class="metrics-grid">';
-            
-            // Heading Structure
-            if (structure.headings) {
-                html += '<div class="metric-detail" style="grid-column: 1 / -1;"><strong>Heading Structure:</strong> ';
-                const headings = [];
-                for (let i = 1; i <= 6; i++) {
-                    if (structure.headings[`h${i}`] !== undefined) {
-                        headings.push(`H${i}: ${structure.headings[`h${i}`]}`);
-                    }
-                }
-                html += headings.join(', ') + '</div>';
-            }
-            
-            // Keyword Analysis
-            if (structure.keywordAnalysis) {
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Total Keywords</div>
-                    <div class="metric-detail-value">${structure.keywordAnalysis.totalWords || 0}</div>
-                </div>`;
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Unique Keywords</div>
-                    <div class="metric-detail-value">${structure.keywordAnalysis.uniqueWords || 0}</div>
-                </div>`;
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Semantic Relevance</div>
-                    <div class="metric-detail-value">${structure.keywordAnalysis.semanticRelevance || 'N/A'}</div>
-                </div>`;
-            }
-            
-            // Top Keywords
-            if (structure.keywordAnalysis?.topKeywords?.length > 0) {
-                html += '</div><h4 style="margin-top: 30px; margin-bottom: 15px;">Top Keywords</h4>';
-                html += '<table class="metrics-table"><thead><tr><th>Keyword</th><th>Count</th><th>Density</th><th>Relevance</th></tr></thead><tbody>';
-                structure.keywordAnalysis.topKeywords.slice(0, 10).forEach(kw => {
-                    html += `<tr>
-                        <td><strong>${kw.word}</strong></td>
-                        <td>${kw.count}</td>
-                        <td>${kw.density}%</td>
-                        <td>${kw.relevance || 'Medium'}</td>
-                    </tr>`;
-                });
-                html += '</tbody></table>';
-            } else {
-                html += '</div>';
-            }
-            
-            // Image Analysis
-            if (structure.images) {
-                html += '<h4 style="margin-top: 30px; margin-bottom: 15px;">Image Analysis</h4>';
-                html += '<div class="metrics-grid">';
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Total Images</div>
-                    <div class="metric-detail-value">${structure.images.total || 0}</div>
-                </div>`;
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">With Alt Text</div>
-                    <div class="metric-detail-value">${structure.images.hasAlt || 0}</div>
-                </div>`;
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Missing Alt</div>
-                    <div class="metric-detail-value status-${structure.images.missingAlt > 0 ? 'error' : 'good'}">${structure.images.missingAlt || 0}</div>
-                </div>`;
-                if (structure.imagesDetailed) {
-                    const withDimensions = structure.imagesDetailed.filter(img => img.hasDimensions).length;
-                    const lazyLoaded = structure.imagesDetailed.filter(img => img.loading === 'lazy').length;
-                    html += `<div class="metric-detail">
-                        <div class="metric-detail-label">With Dimensions</div>
-                        <div class="metric-detail-value">${withDimensions}</div>
-                    </div>`;
-                    html += `<div class="metric-detail">
-                        <div class="metric-detail-label">Lazy Loaded</div>
-                        <div class="metric-detail-value">${lazyLoaded}</div>
-                    </div>`;
-                }
-                html += '</div>';
-            }
-            
-            // Link Analysis
-            if (structure.linksDetailed) {
-                html += '<h4 style="margin-top: 30px; margin-bottom: 15px;">Link Analysis</h4>';
-                html += '<div class="metrics-grid">';
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Internal Links</div>
-                    <div class="metric-detail-value">${structure.links?.internal || 0}</div>
-                </div>`;
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">External Links</div>
-                    <div class="metric-detail-value">${structure.links?.external || 0}</div>
-                </div>`;
-                if (structure.linksDetailed.internal) {
-                    const nofollowInternal = structure.linksDetailed.internal.filter(l => l.isNofollow).length;
-                    html += `<div class="metric-detail">
-                        <div class="metric-detail-label">Internal Nofollow</div>
-                        <div class="metric-detail-value">${nofollowInternal}</div>
-                    </div>`;
-                }
-                html += '</div>';
-            }
-            
-            container.innerHTML = html;
-        }
-
-        function displayContentQuality(data) {
-            const container = document.getElementById('contentQuality');
-            const structure = data.structure;
-            
-            let html = '<div class="metrics-grid">';
-            
-            // Readability
-            if (structure.readabilityScore !== undefined) {
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Readability Score</div>
-                    <div class="metric-detail-value status-${structure.readabilityScore >= 70 ? 'good' : structure.readabilityScore >= 50 ? 'warning' : 'error'}">${structure.readabilityScore}/100</div>
-                </div>`;
-            }
-            
-            // Word Count
-            if (structure.wordCount !== undefined) {
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Word Count</div>
-                    <div class="metric-detail-value">${structure.wordCount}</div>
-                </div>`;
-            }
-            
-            // Content Uniqueness
-            if (structure.contentUniqueness) {
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Content Uniqueness Score</div>
-                    <div class="metric-detail-value status-${structure.contentUniqueness.score >= 70 ? 'good' : 'warning'}">${structure.contentUniqueness.score || 0}/100</div>
-                </div>`;
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Sentences</div>
-                    <div class="metric-detail-value">${structure.contentUniqueness.sentenceCount || 0}</div>
-                </div>`;
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Avg Words/Sentence</div>
-                    <div class="metric-detail-value">${structure.contentUniqueness.avgWordsPerSentence || 0}</div>
-                </div>`;
-            }
-            
-            // Keyword Intent
-            if (structure.keywordIntent) {
-                html += '</div><h4 style="margin-top: 30px; margin-bottom: 15px;">Keyword Intent Analysis</h4>';
-                html += '<div class="metrics-grid">';
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Primary Intent</div>
-                    <div class="metric-detail-value">${structure.keywordIntent.primaryIntent || 'Unknown'}</div>
-                </div>`;
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Confidence</div>
-                    <div class="metric-detail-value">${structure.keywordIntent.confidence || 0}%</div>
-                </div>`;
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Intent Alignment</div>
-                    <div class="metric-detail-value status-${structure.keywordIntent.aligned ? 'good' : 'warning'}">${structure.keywordIntent.aligned ? 'Well Aligned ✅' : 'Needs Improvement ⚠️'}</div>
-                </div>`;
-                html += '</div>';
-            } else {
-                html += '</div>';
-            }
-            
-            container.innerHTML = html;
-        }
-
-        function displayIndexabilitySecurity(data) {
-            const container = document.getElementById('indexabilitySecurity');
-            const structure = data.structure;
-            const security = data.metrics.security;
-            
-            let html = '<div class="metrics-grid">';
-            
-            // Security
-            html += `<div class="metric-detail">
-                <div class="metric-detail-label">HTTPS</div>
-                <div class="metric-detail-value status-${security.httpsUsed ? 'good' : 'error'}">${security.httpsUsed ? 'Enabled ✅' : 'Not Enabled ❌'}</div>
-            </div>`;
-            html += `<div class="metric-detail">
-                <div class="metric-detail-label">Mixed Content</div>
-                <div class="metric-detail-value status-${security.mixedContent ? 'good' : 'warning'}">${security.mixedContent ? 'Safe ✅' : 'Issues Detected ⚠️'}</div>
-            </div>`;
-            
-            // Indexability
-            html += `<div class="metric-detail">
-                <div class="metric-detail-label">Robots.txt</div>
-                <div class="metric-detail-value status-${structure.robotsTxt?.exists ? 'good' : 'warning'}">${structure.robotsTxt?.exists ? 'Found ✅' : 'Not Found ❌'}</div>
-            </div>`;
-            html += `<div class="metric-detail">
-                <div class="metric-detail-label">Robots Allowed</div>
-                <div class="metric-detail-value status-${structure.robotsAllowed ? 'good' : 'error'}">${structure.robotsAllowed ? 'Indexing Allowed ✅' : 'Blocked ❌'}</div>
-            </div>`;
-            html += `<div class="metric-detail">
-                <div class="metric-detail-label">XML Sitemap</div>
-                <div class="metric-detail-value status-${structure.sitemap?.found ? 'good' : 'warning'}">${structure.sitemap?.found ? 'Found ✅' : 'Not Found ❌'}</div>
-            </div>`;
-            html += `<div class="metric-detail">
-                <div class="metric-detail-label">Canonical Tag</div>
-                <div class="metric-detail-value status-${structure.canonical !== 'Not found' ? 'good' : 'warning'}">${structure.canonical !== 'Not found' ? 'Present ✅' : 'Missing ❌'}</div>
-            </div>`;
-            html += `<div class="metric-detail">
-                <div class="metric-detail-label">Hreflang Tags</div>
-                <div class="metric-detail-value status-${structure.hreflang?.found ? 'good' : 'warning'}">${structure.hreflang?.found ? `Found (${structure.hreflang.count} languages) ✅` : 'Missing ❌'}</div>
-            </div>`;
-            
-            html += '</div>';
-            
-            if (structure.robotsTxt?.sitemaps?.length > 0) {
-                html += '<p style="margin-top: 20px;"><strong>Sitemaps in robots.txt:</strong> ' + structure.robotsTxt.sitemaps.join(', ') + '</p>';
-            }
-            
-            container.innerHTML = html;
-        }
-
-        function displayDomainOffPage(data) {
-            const container = document.getElementById('domainOffPage');
-            const structure = data.structure;
-            
-            let html = '<div class="metrics-grid">';
-            
-            // Domain Info
-            if (structure.domainInfo) {
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Domain</div>
-                    <div class="metric-detail-value">${structure.domainInfo.hostname || 'N/A'}</div>
-                </div>`;
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Domain Age</div>
-                    <div class="metric-detail-value">${structure.domainInfo.age || 'Unknown'}</div>
-                </div>`;
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Estimated Authority</div>
-                    <div class="metric-detail-value">${structure.domainInfo.estimatedAuthority || 'Unknown'}</div>
-                </div>`;
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">SSL Enabled</div>
-                    <div class="metric-detail-value status-${structure.domainInfo.ssl ? 'good' : 'error'}">${structure.domainInfo.ssl ? 'Yes ✅' : 'No ❌'}</div>
-                </div>`;
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">Subdomain</div>
-                    <div class="metric-detail-value">${structure.domainInfo.subdomain ? 'Yes' : 'No'}</div>
-                </div>`;
-            }
-            
-            html += '</div>';
-            
-            // Social Links
-            if (structure.linksDetailed?.social?.length > 0) {
-                html += '<h4 style="margin-top: 30px; margin-bottom: 15px;">Social Media Presence</h4>';
-                html += '<ul style="list-style: none; padding: 0;">';
-                structure.linksDetailed.social.forEach(link => {
-                    html += `<li style="padding: 5px 0;">🔗 <a href="${link}" target="_blank" style="color: var(--primary);">${link}</a></li>`;
-                });
-                html += '</ul>';
-            }
-            
-            // Open Graph Social Media Optimization
-            if (structure.openGraph) {
-                html += '<h4 style="margin-top: 30px; margin-bottom: 15px;">Open Graph (Social Media) Analysis</h4>';
-                html += '<div class="metrics-grid">';
-                
-                // Basic OG Info
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">OG Found</div>
-                    <div class="metric-detail-value status-${structure.openGraph?.found ? 'good' : 'warning'}">${structure.openGraph?.found ? 'Yes ✅' : 'No ❌'}</div>
-                </div>`;
-                
-                if (structure.openGraph?.basic?.title) {
-                    html += `<div class="metric-detail">
-                        <div class="metric-detail-label">OG Title</div>
-                        <div class="metric-detail-value" style="font-size: 12px;">"${structure.openGraph.basic.title}"</div>
-                    </div>`;
-                }
-                
-                if (structure.openGraph?.basic?.description) {
-                    html += `<div class="metric-detail">
-                        <div class="metric-detail-label">OG Description</div>
-                        <div class="metric-detail-value" style="font-size: 12px; max-width: 200px; word-wrap: break-word;">"${structure.openGraph.basic.description}"</div>
-                    </div>`;
-                }
-                
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">OG Type</div>
-                    <div class="metric-detail-value">${structure.openGraph?.basic?.type || 'Not specified'}</div>
-                </div>`;
-                
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">OG Images</div>
-                    <div class="metric-detail-value">${structure.openGraph?.images?.length || 0} found</div>
-                </div>`;
-                
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">OG Site Name</div>
-                    <div class="metric-detail-value">${structure.openGraph?.basic?.siteName || 'Missing'}</div>
-                </div>`;
-                
-                // Twitter Card Info
-                if (structure.openGraph?.twitter?.card) {
-                    html += `<div class="metric-detail">
-                        <div class="metric-detail-label">Twitter Card</div>
-                        <div class="metric-detail-value">${structure.openGraph.twitter.card} ✅</div>
-                    </div>`;
-                }
-                
-                // Facebook Integration
-                if (structure.openGraph?.facebook?.app_id) {
-                    html += `<div class="metric-detail">
-                        <div class="metric-detail-label">Facebook App ID</div>
-                        <div class="metric-detail-value">Configured ✅</div>
-                    </div>`;
-                }
-                
-                html += `<div class="metric-detail">
-                    <div class="metric-detail-label">OG Completeness</div>
-                    <div class="metric-detail-value status-${structure.openGraph?.completeness >= 70 ? 'good' : structure.openGraph?.completeness >= 40 ? 'warning' : 'error'}">${structure.openGraph?.completeness || 0}/100</div>
-                </div>`;
-                
-                html += '</div>';
-                
-                // Show OG images if available
-                if (structure.openGraph?.images?.length > 0) {
-                    html += '<h5 style="margin-top: 20px; margin-bottom: 10px;">OG Images:</h5>';
-                    html += '<div style="display: flex; gap: 10px; flex-wrap: wrap;">';
-                    structure.openGraph.images.slice(0, 3).forEach((img, index) => {
-                        html += `<div style="border: 1px solid #ddd; padding: 5px; border-radius: 4px;">
-                            <img src="${img.url}" alt="OG Image ${index + 1}" style="max-width: 100px; max-height: 100px; object-fit: cover; border-radius: 4px;" onerror="this.style.display='none';">
-                            <div style="font-size: 10px; margin-top: 5px;">${img.width || '?'}x${img.height || '?'}</div>
-                        </div>`;
-                    });
-                    html += '</div>';
-                }
-            }
-            
-            container.innerHTML = html;
-        }
-
-        function createScoreChart(score) {
-            const ctx = document.getElementById('scoreChart').getContext('2d');
-            
-            if (scoreChart) {
-                scoreChart.destroy();
-            }
-            
-            const color = score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
-            
-            scoreChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    datasets: [{
-                        data: [score, 100 - score],
-                        backgroundColor: [color, '#e5e7eb'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: false,
-                    maintainAspectRatio: false,
-                    cutout: '75%',
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { enabled: false }
-                    }
-                }
-            });
-        }
-
-        function createCategoryChart(scores) {
-            const ctx = document.getElementById('categoryChart').getContext('2d');
-            
-            if (categoryChart) {
-                categoryChart.destroy();
-            }
-            
-            categoryChart = new Chart(ctx, {
-                type: 'radar',
-                data: {
-                    labels: ['Technical SEO', 'On-Page SEO', 'Content Quality', 'User Experience'],
-                    datasets: [{
-                        label: 'SEO Scores',
-                        data: [
-                            scores.technical_seo || 0,
-                            scores.on_page_seo || 0,
-                            scores.content_quality || 0,
-                            scores.user_experience || 0
-                        ],
-                        backgroundColor: 'rgba(37, 99, 235, 0.2)',
-                        borderColor: 'rgba(37, 99, 235, 1)',
-                        borderWidth: 2,
-                        pointBackgroundColor: 'rgba(37, 99, 235, 1)',
-                        pointBorderColor: '#fff',
-                        pointHoverBackgroundColor: '#fff',
-                        pointHoverBorderColor: 'rgba(37, 99, 235, 1)'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        r: {
-                            beginAtZero: true,
-                            max: 100,
-                            ticks: {
-                                stepSize: 20
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    }
-                }
-            });
-        }
-
-        function displayRecommendations(recommendations) {
-            const list = document.getElementById('recList');
-            list.innerHTML = '';
-            
-            if (!recommendations || recommendations.length === 0) {
-                list.innerHTML = '<p style="text-align: center; color: #10b981;">🎉 Great job! No critical issues found.</p>';
-                return;
-            }
-            
-            // Sort by priority
-            const sortedRecs = recommendations.sort((a, b) => {
-                const priorityOrder = { 'Critical': 0, 'Medium': 1, 'Quick Win': 2 };
-                return priorityOrder[a.priority] - priorityOrder[b.priority];
-            });
-            
-            sortedRecs.forEach((rec, index) => {
-                const div = document.createElement('div');
-                const priorityClass = rec.priority.toLowerCase().replace(' ', '-');
-                const badgeClass = `badge-${priorityClass}`;
-                
-                div.className = `rec-item rec-${priorityClass}`;
-                div.innerHTML = `
-                    <div class="rec-header">
-                        <div>
-                            <div class="rec-title">${rec.issue}</div>
-                            <div class="rec-category">${rec.category}</div>
-                        </div>
-                        <span class="badge ${badgeClass}">${rec.priority}</span>
-                    </div>
-                    ${rec.problem ? `<div class="rec-problem"><strong>What's wrong:</strong> ${rec.problem}</div>` : ''}
-                    ${rec.why_it_matters || rec.impact ? `<div class="rec-impact"><strong>Why it matters for SEO:</strong> ${rec.why_it_matters || rec.impact}</div>` : ''}
-                    <div class="rec-fix"><strong>How to fix:</strong> ${rec.how_to_fix || rec.solution || rec.fix}</div>
-                `;
-                
-                // Add animation
-                div.style.opacity = '0';
-                div.style.transform = 'translateY(20px)';
-                list.appendChild(div);
-                
-                setTimeout(() => {
-                    div.style.transition = 'all 0.5s ease';
-                    div.style.opacity = '1';
-                    div.style.transform = 'translateY(0)';
-                }, index * 100);
-            });
-        }
-
-        async function downloadPDF() {
-            if(!lastReport) {
-                showError('No audit data available. Please run an audit first.');
-                return;
-            }
-            
-            try {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                
-                // Header
-                doc.setFontSize(20);
-                doc.setTextColor(37, 99, 235);
-                doc.text("SEO Audit Report", 20, 20);
-                
-                doc.setFontSize(12);
-                doc.setTextColor(0, 0, 0);
-                doc.text(`URL: ${lastReport.url}`, 20, 35);
-                doc.text(`Date: ${new Date(lastReport.timestamp).toLocaleDateString()}`, 20, 45);
-                doc.text(`Overall Score: ${lastReport.report.health_score}/100`, 20, 55);
-                
-                // Scores
-                doc.text("Performance Scores:", 20, 70);
-                doc.text(`- Performance: ${lastReport.metrics.performance}/100`, 25, 80);
-                doc.text(`- SEO: ${lastReport.metrics.seo}/100`, 25, 90);
-                doc.text(`- Mobile Friendly: ${lastReport.metrics.mobileScore}/100`, 25, 100);
-                
-                // Summary
-                doc.setFontSize(14);
-                doc.text("Executive Summary:", 20, 120);
-                doc.setFontSize(11);
-                const summaryLines = doc.splitTextToSize(lastReport.report.summary, 170);
-                doc.text(summaryLines, 20, 130);
-                
-                // Recommendations
-                doc.setFontSize(14);
-                let y = 160 + summaryLines.length * 5;
-                doc.text("Prioritized Recommendations:", 20, y);
-                y += 15;
-                
-                lastReport.report.recommendations.forEach((rec, i) => {
-                    if(y > 250) { 
-                        doc.addPage(); 
-                        y = 20; 
-                    }
-                    
-                    doc.setFontSize(12);
-                    doc.setFont("helvetica", "bold");
-                    doc.text(`${i + 1}. [${rec.priority}] ${rec.issue}`, 20, y);
-                    doc.setFont("helvetica", "normal");
-                    
-                    y += 8;
-                    doc.setFontSize(10);
-                    
-                    if (rec.problem) {
-                        const problemLines = doc.splitTextToSize(`What's wrong: ${rec.problem}`, 170);
-                        doc.text(problemLines, 20, y);
-                        y += 8 + (problemLines.length * 5);
-                    }
-                    
-                    if (rec.why_it_matters || rec.impact) {
-                        const whyLines = doc.splitTextToSize(`Why it matters for SEO: ${rec.why_it_matters || rec.impact}`, 170);
-                        doc.text(whyLines, 20, y);
-                        y += 8 + (whyLines.length * 5);
-                    }
-                    
-                    const fixText = rec.how_to_fix || rec.solution || rec.fix || 'No fix instructions provided';
-                    const fixLines = doc.splitTextToSize(`How to fix: ${fixText}`, 170);
-                    doc.text(fixLines, 20, y);
-                    y += 15 + (fixLines.length * 5);
-                });
-                
-                // Footer
-                doc.setFontSize(9);
-                doc.setTextColor(128, 128, 128);
-                doc.text("This is an AI-generated SEO audit. Validate recommendations before implementation.", 20, 280);
-                
-                doc.save(`seo-audit-${lastReport.url.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
-                showSuccess('📄 PDF report downloaded successfully!');
-                
-            } catch (error) {
-                showError('Failed to generate PDF: ' + error.message);
-            }
-        }
-
-        async function copyRecommendations() {
-            if(!lastReport) {
-                showError('No audit data available. Please run an audit first.');
-                return;
-            }
-            
-            try {
-                const text = formatRecommendationsForCopy(lastReport);
-                await navigator.clipboard.writeText(text);
-                showSuccess('📋 Recommendations copied to clipboard!');
-            } catch (error) {
-                showError('Failed to copy: ' + error.message);
-            }
-        }
-
-        function formatRecommendationsForCopy(data) {
-            let text = `SEO AUDIT REPORT\n`;
-            text += `URL: ${data.url}\n`;
-            text += `Date: ${new Date(data.timestamp).toLocaleDateString()}\n`;
-            text += `Overall Score: ${data.report.health_score}/100\n\n`;
-            
-            text += `PERFORMANCE SCORES:\n`;
-            text += `- Performance: ${data.metrics.performance}/100\n`;
-            text += `- SEO: ${data.metrics.seo}/100\n`;
-            text += `- Mobile Friendly: ${data.metrics.mobileScore}/100\n\n`;
-            
-            text += `EXECUTIVE SUMMARY:\n${data.report.summary}\n\n`;
-            
-            text += `PRIORITIZED RECOMMENDATIONS:\n`;
-            data.report.recommendations.forEach((rec, i) => {
-                text += `\n${i + 1}. [${rec.priority}] ${rec.issue}\n`;
-                text += `   Category: ${rec.category}\n`;
-                if (rec.problem) {
-                    text += `   What's wrong: ${rec.problem}\n`;
-                }
-                if (rec.why_it_matters || rec.impact) {
-                    text += `   Why it matters for SEO: ${rec.why_it_matters || rec.impact}\n`;
-                }
-                text += `   How to fix: ${rec.how_to_fix || rec.solution || rec.fix}\n`;
-            });
-            
-            text += `\n---\nThis is an AI-generated SEO audit. Validate recommendations before implementation.`;
-            
-            return text;
-        }
-
-        // Utility functions
-        function isValidEmail(email) {
-            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-        }
-
-        function calculateTechnicalScore(metrics) {
-            let score = 0;
-            const factors = [
-                { metric: metrics.performance, weight: 0.3 },
-                { metric: metrics.seo, weight: 0.2 },
-                { metric: metrics.mobileScore, weight: 0.2 },
-                { metric: metrics.security.httpsUsed ? 100 : 50, weight: 0.15 },
-                { metric: metrics.security.mixedContent ? 100 : 70, weight: 0.15 }
-            ];
-            
-            factors.forEach(factor => {
-                score += factor.metric * factor.weight;
-            });
-            
-            return Math.round(score);
-        }
-
-        function showError(message) {
-            // Create or update error toast
-            let toast = document.getElementById('errorToast');
-            if (!toast) {
-                toast = document.createElement('div');
-                toast.id = 'errorToast';
-                toast.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: #ef4444;
-                    color: white;
-                    padding: 15px 20px;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                    z-index: 1000;
-                    max-width: 300px;
-                    animation: slideIn 0.3s ease;
-                `;
-                document.body.appendChild(toast);
-            }
-            
-            toast.textContent = message;
-            toast.style.display = 'block';
-            
-            setTimeout(() => {
-                toast.style.display = 'none';
-            }, 5000);
-        }
-
-        function showSuccess(message) {
-            // Create or update success toast
-            let toast = document.getElementById('successToast');
-            if (!toast) {
-                toast = document.createElement('div');
-                toast.id = 'successToast';
-                toast.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: #10b981;
-                    color: white;
-                    padding: 15px 20px;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                    z-index: 1000;
-                    max-width: 300px;
-                    animation: slideIn 0.3s ease;
-                `;
-                document.body.appendChild(toast);
-            }
-            
-            toast.textContent = message;
-            toast.style.display = 'block';
-            
-            setTimeout(() => {
-                toast.style.display = 'none';
-            }, 5000);
-        }
-
-        // Add CSS animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-            }
-        `;
-        document.head.appendChild(style);
-    </script>
-</body>
-</html>
+    .action-buttons { display: flex; gap: 15px; margin-top: 30px; }
+    .btn-secondary { flex: 1; padding: 12px; background: #64748b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    .mt-30 { margin-top: 30px; } .mt-40 { margin-top: 40px; }
+    .loader { text-align: center; margin: 40px 0; }
+    .loader-spinner { width: 40px; height: 40px; border: 4px solid var(--border); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 600px) { .form-row, .grid, .metric-grid { display: block; } .input-group, .card, .metric-item { margin-bottom: 15px; } }
+`
