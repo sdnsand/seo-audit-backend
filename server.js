@@ -1,14 +1,19 @@
-const express = require('express');
-const cors = require('cors');
-const chromeLauncher = require('chrome-launcher');
-const cheerio = require('cheerio');
-const puppeteer = require('puppeteer');
-const { Groq } = require("groq-sdk");
-const fs = require('fs');
-const path = require('path');
-const urlModule = require('url');
-const nodemailer = require('nodemailer');
-require('dotenv').config();
+import express from 'express';
+import cors from 'cors';
+import * as ChromeLauncher from 'chrome-launcher';
+import * as cheerio from 'cheerio';
+import puppeteer from 'puppeteer';
+import { Groq } from "groq-sdk";
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Set Node.js environment variable to ignore SSL certificate errors
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
@@ -18,7 +23,7 @@ async function fetchContent(url, options = {}) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), options.timeout || 8000);
-    
+
     const response = await fetch(url, {
       signal: controller.signal,
       method: options.method || 'GET',
@@ -27,11 +32,11 @@ async function fetchContent(url, options = {}) {
         ...options.headers
       }
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     const text = await response.text();
-    
+
     return {
       ok: response.ok,
       status: response.status,
@@ -49,7 +54,7 @@ async function fetchContent(url, options = {}) {
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public')); 
+app.use(express.static('public'));
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -61,21 +66,21 @@ function analyzeKeywords(text, title, description) {
   const combinedText = `${title} ${description} ${text}`.toLowerCase();
   const words = combinedText.match(/\b[a-z]{3,}\b/g) || [];
   const wordFreq = {};
-  
+
   // Common stop words to filter out
   const stopWords = ['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'who', 'way', 'use', 'she', 'had', 'this', 'that', 'from', 'they', 'with', 'have', 'what', 'were', 'when', 'your', 'said', 'each', 'which', 'their', 'time', 'will', 'about', 'would', 'there', 'could', 'other', 'after', 'first', 'never', 'these', 'think', 'where', 'being', 'those', 'shall', 'should', 'than', 'them', 'then', 'these', 'they', 'this', 'those', 'through', 'to', 'too', 'under', 'until', 'up', 'very', 'was', 'we', 'were', 'what', 'when', 'where', 'which', 'while', 'who', 'whom', 'why', 'with', 'would', 'you', 'your'];
-  
+
   words.forEach(word => {
     if (!stopWords.includes(word)) {
       wordFreq[word] = (wordFreq[word] || 0) + 1;
     }
   });
-  
+
   // Extract title and description keywords for relevance scoring
   const titleWords = title.toLowerCase().match(/\b[a-z]{3,}\b/g) || [];
   const descWords = description.toLowerCase().match(/\b[a-z]{3,}\b/g) || [];
   const importantKeywords = [...new Set([...titleWords, ...descWords])];
-  
+
   // Calculate semantic relevance (keywords in title/description are more relevant)
   const sortedWords = Object.entries(wordFreq)
     .sort((a, b) => {
@@ -91,7 +96,7 @@ function analyzeKeywords(text, title, description) {
       density: ((count / words.length) * 100).toFixed(2),
       relevance: importantKeywords.includes(word) ? 'High' : 'Medium' // Semantic relevance indicator
     }));
-  
+
   return {
     totalWords: words.length,
     uniqueWords: Object.keys(wordFreq).length,
@@ -106,22 +111,22 @@ function evaluateContentUniqueness(text, title, description) {
   const charCount = text.length;
   const sentenceCount = text.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
   const avgWordsPerSentence = sentenceCount > 0 ? wordCount / sentenceCount : 0;
-  
+
   let score = 50; // Base score
-  
+
   // Score based on length
   if (wordCount >= 300 && wordCount <= 2000) score += 20;
   else if (wordCount > 2000) score += 15;
   else if (wordCount < 300) score -= 20;
-  
+
   // Score based on title/description relevance
   if (title && description) score += 15;
   if (title.length >= 30 && title.length <= 60) score += 10;
   if (description.length >= 120 && description.length <= 160) score += 10;
-  
+
   // Score based on sentence structure
   if (avgWordsPerSentence >= 15 && avgWordsPerSentence <= 25) score += 5;
-  
+
   return {
     score: Math.min(100, Math.max(0, score)),
     wordCount,
@@ -135,20 +140,20 @@ function calculateReadability(text) {
   const words = text.split(/\s+/).filter(w => w.length > 0);
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
   const syllables = text.toLowerCase().match(/[aeiouy]+/g) || [];
-  
+
   if (words.length === 0 || sentences.length === 0) return 50;
-  
+
   const avgWordsPerSentence = words.length / sentences.length;
   const avgSyllablesPerWord = syllables.length / words.length;
-  
+
   // Flesch Reading Ease simplified calculation
   const fleschScore = 206.835 - (1.015 * avgWordsPerSentence) - (84.6 * avgSyllablesPerWord);
-  
+
   // Convert to 0-100 scale
   let score = fleschScore;
   if (score > 100) score = 100;
   if (score < 0) score = 0;
-  
+
   return Math.round(score);
 }
 
@@ -157,11 +162,11 @@ function analyzeImages(images) {
   const total = images.length;
   const hasAlt = images.filter(img => img.hasAlt).length;
   const missingAlt = total - hasAlt;
-  
+
   // Estimate optimization (assuming images with width/height attributes are optimized)
   const optimized = images.filter(img => img.width && img.height).length;
   const optimizationRate = total > 0 ? Math.round((optimized / total) * 100) : 0;
-  
+
   return {
     total,
     hasAlt,
@@ -181,12 +186,12 @@ function analyzeStructuredData(structuredData, $) {
   let breadcrumb = false;
   let localBusiness = false;
   let rating = false;
-  
+
   structuredData.forEach(schema => {
     if (schema['@type']) {
       const type = Array.isArray(schema['@type']) ? schema['@type'][0] : schema['@type'];
       if (!types.includes(type)) types.push(type);
-      
+
       if (type === 'Organization' || type === 'LocalBusiness') organization = true;
       if (type === 'Article' || type === 'NewsArticle') article = true;
       if (type === 'Product' || type === 'Service') product = true;
@@ -195,7 +200,7 @@ function analyzeStructuredData(structuredData, $) {
       if (schema.aggregateRating || schema.rating) rating = true;
     }
   });
-  
+
   return {
     schemasFound: structuredData.length,
     types,
@@ -212,23 +217,23 @@ function analyzeStructuredData(structuredData, $) {
 function performCompetitiveAnalysis(metrics, structure) {
   const strengths = [];
   const weaknesses = [];
-  
+
   if (metrics.performance >= 70) strengths.push('Strong performance metrics');
   else weaknesses.push('Performance needs improvement');
-  
+
   if (metrics.seo >= 80) strengths.push('Excellent SEO score');
   else if (metrics.seo < 60) weaknesses.push('SEO score below average');
-  
+
   if (structure.h1Count === 1) strengths.push('Proper H1 structure');
   else weaknesses.push('H1 tag issues');
-  
+
   if (structure.readabilityScore >= 70) strengths.push('Good content readability');
   else weaknesses.push('Readability could be improved');
-  
+
   const overallGrade = metrics.performance >= 80 && metrics.seo >= 80 ? 'A' :
-                       metrics.performance >= 70 && metrics.seo >= 70 ? 'B' :
-                       metrics.performance >= 60 || metrics.seo >= 60 ? 'C' : 'D';
-  
+    metrics.performance >= 70 && metrics.seo >= 70 ? 'B' :
+      metrics.performance >= 60 || metrics.seo >= 60 ? 'C' : 'D';
+
   return {
     overallGrade,
     strengths,
@@ -256,22 +261,22 @@ async function captureScreenshot(targetUrl) {
 async function analyzeDomain(url) {
   try {
     const hostname = new URL(url).hostname;
-    
+
     // Attempt to estimate domain age using free methods
     // Note: Free WHOIS APIs have rate limits, so we'll try Archive.org as a proxy
     let ageEstimate = 'Unknown';
     let ageInYears = null;
-    
+
     try {
       // Try to get first archive.org snapshot (indicates domain existence)
       const archiveUrl = `https://web.archive.org/cdx/search/cdx?url=${hostname}&output=json&limit=1&collapse=urlkey`;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
-      
+
       try {
         const response = await fetch(archiveUrl, { signal: controller.signal });
         clearTimeout(timeoutId);
-        
+
         if (response.ok) {
           const data = await response.json();
           if (data && data.length > 1 && data[1][1]) {
@@ -283,7 +288,7 @@ async function analyzeDomain(url) {
             const firstSeen = new Date(year, month - 1, day);
             const now = new Date();
             ageInYears = Math.floor((now - firstSeen) / (1000 * 60 * 60 * 24 * 365));
-            
+
             if (ageInYears >= 0) {
               if (ageInYears < 1) {
                 const months = Math.floor((now - firstSeen) / (1000 * 60 * 60 * 24 * 30));
@@ -305,12 +310,12 @@ async function analyzeDomain(url) {
     } catch (e) {
       // Fall through to default
     }
-    
+
     // Additional domain analysis
     const isSubdomain = hostname.split('.').length > 2;
     const tld = hostname.split('.').pop();
     const domainName = isSubdomain ? hostname.split('.').slice(-2).join('.') : hostname;
-    
+
     return {
       hostname,
       domainName: domainName,
@@ -334,7 +339,7 @@ async function analyzeDomain(url) {
 // Helper function: Check if a path is allowed by robots.txt rules
 function checkPathRobots(path, disallowRules, allowRules) {
   let allowed = true;
-  
+
   // Check Disallow rules first (more restrictive)
   for (const rule of disallowRules) {
     if (path.startsWith(rule)) {
@@ -348,7 +353,7 @@ function checkPathRobots(path, disallowRules, allowRules) {
       }
     }
   }
-  
+
   return allowed;
 }
 
@@ -356,36 +361,36 @@ function checkPathRobots(path, disallowRules, allowRules) {
 async function analyzeRobotsTxt(url) {
   console.log('=== analyzeRobotsTxt DEBUG ===');
   console.log('Input URL:', url);
-  
+
   try {
     const urlObj = new URL(url);
     const currentPath = urlObj.pathname;
     const robotsUrl = `${urlObj.protocol}//${urlObj.hostname}/robots.txt`;
-    
+
     console.log('Parsed hostname:', urlObj.hostname);
     console.log('Parsed protocol:', urlObj.protocol);
     console.log('Current path:', currentPath);
     console.log('Constructed robots URL:', robotsUrl);
     console.log('URL validation check - is URL valid?:', urlObj && urlObj.hostname && urlObj.protocol);
-    
+
     const response = await fetchContent(robotsUrl, {
       timeout: 8000,
       userAgent: 'SEO-Audit-Tool/1.0'
     });
-    
+
     console.log('robots.txt request completed');
     console.log('Response status:', response.status);
     console.log('Response ok:', response.ok);
-    
+
     if (response.ok) {
       console.log('✅ robots.txt FOUND and accessible');
       const robotsContent = await response.text();
       console.log('Content length:', robotsContent.length);
       console.log('Content preview:', robotsContent.substring(0, 200) + '...');
-      
+
       // Parse robots.txt more accurately
       const lines = robotsContent.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-      
+
       let currentUserAgent = null;
       let blocksAll = false;
       let allowsAll = false;
@@ -394,11 +399,11 @@ async function analyzeRobotsTxt(url) {
       const allowRules = [];
       const crawlDelay = null;
       const subpageRules = {};
-      
+
       // Parse each line
       for (const line of lines) {
         const lowerLine = line.toLowerCase();
-        
+
         // Check for User-agent directive
         if (lowerLine.startsWith('user-agent:')) {
           const userAgent = line.substring(11).trim();
@@ -409,7 +414,7 @@ async function analyzeRobotsTxt(url) {
           }
           continue;
         }
-        
+
         // Check for Disallow directive
         if (currentUserAgent === '*' && lowerLine.startsWith('disallow:')) {
           const path = line.substring(9).trim();
@@ -433,7 +438,7 @@ async function analyzeRobotsTxt(url) {
             }
           }
         }
-        
+
         // Check for Allow directive
         if (currentUserAgent === '*' && lowerLine.startsWith('allow:')) {
           const path = line.substring(6).trim();
@@ -451,7 +456,7 @@ async function analyzeRobotsTxt(url) {
             }
           }
         }
-        
+
         // Extract sitemap URLs
         if (lowerLine.startsWith('sitemap:')) {
           const sitemapUrl = line.substring(8).trim();
@@ -460,13 +465,13 @@ async function analyzeRobotsTxt(url) {
           }
         }
       }
-      
+
       // Check if current page path is specifically affected
       const currentPathAllowed = checkPathRobots(currentPath, disallowRules, allowRules);
-      
+
       // Determine if indexing is allowed
       const allowsIndexing = !blocksAll || allowsAll;
-      
+
       // Analyze subpage-specific rules
       const subpageAnalysis = {
         hasAdminRules: !!(subpageRules.admin && subpageRules.admin.length > 0),
@@ -475,7 +480,7 @@ async function analyzeRobotsTxt(url) {
         hasSearchRules: !!(subpageRules.search && subpageRules.search.length > 0),
         rules: subpageRules
       };
-      
+
       const result = {
         exists: true,
         allowsIndexing: allowsIndexing,
@@ -489,17 +494,17 @@ async function analyzeRobotsTxt(url) {
         content: robotsContent.substring(0, 2000), // More content for reference
         currentPath: currentPath
       };
-      
+
       console.log('analyzeRobotsTxt returning enhanced result');
       console.log('disallowRules count:', result.disallowRules.length);
       console.log('subpageAnalysis keys:', Object.keys(result.subpageAnalysis.rules));
-      
+
       return result;
     }
-    
+
     console.log('❌ robots.txt NOT FOUND for URL:', url);
     console.log('Response status:', response?.status || 'No response');
-    
+
     return {
       exists: false,
       allowsIndexing: true, // Default assumption if robots.txt doesn't exist
@@ -516,7 +521,7 @@ async function analyzeRobotsTxt(url) {
     console.log('Error type:', error.constructor.name);
     console.log('Error message:', error.message);
     console.log('Error code:', error.code);
-    
+
     return {
       exists: false,
       allowsIndexing: true,
@@ -533,9 +538,9 @@ async function analyzeRobotsTxt(url) {
 
 // Helper function: Analyze meta robots tags
 function analyzeMetaRobots($) {
-  const metaRobots = $('meta[name="robots"]').attr('content') || 
-                     $('meta[name="googlebot"]').attr('content') || '';
-  
+  const metaRobots = $('meta[name="robots"]').attr('content') ||
+    $('meta[name="googlebot"]').attr('content') || '';
+
   if (!metaRobots) {
     return {
       found: false,
@@ -545,11 +550,11 @@ function analyzeMetaRobots($) {
       directives: []
     };
   }
-  
+
   const directives = metaRobots.split(',').map(d => d.trim().toLowerCase());
   const allowsIndexing = !directives.includes('noindex');
   const allowsFollowing = !directives.includes('nofollow');
-  
+
   return {
     found: true,
     content: metaRobots,
@@ -563,28 +568,28 @@ function analyzeMetaRobots($) {
 function analyzeKeywordIntent(text, title, description) {
   // Simple intent classification based on keywords and content patterns
   const content = `${title} ${description} ${text}`.toLowerCase();
-  
+
   const intentPatterns = {
     informational: ['what', 'how', 'why', 'guide', 'tutorial', 'learn', 'understand', 'explain', 'definition'],
     navigational: ['login', 'sign in', 'account', 'dashboard', 'home', 'contact'],
     transactional: ['buy', 'purchase', 'order', 'price', 'cost', 'discount', 'sale', 'shop', 'cart', 'checkout'],
     commercial: ['compare', 'best', 'review', 'vs', 'top', 'alternative', 'recommend']
   };
-  
+
   const intentScores = {};
   for (const [intent, keywords] of Object.entries(intentPatterns)) {
     const matches = keywords.filter(keyword => content.includes(keyword)).length;
     intentScores[intent] = matches;
   }
-  
-  const primaryIntent = Object.keys(intentScores).reduce((a, b) => 
+
+  const primaryIntent = Object.keys(intentScores).reduce((a, b) =>
     intentScores[a] > intentScores[b] ? a : b
   );
-  
+
   const maxPossibleMatches = intentPatterns[primaryIntent]?.length || 1;
-  const confidence = intentScores[primaryIntent] > 0 ? 
+  const confidence = intentScores[primaryIntent] > 0 ?
     Math.min(100, (intentScores[primaryIntent] / maxPossibleMatches) * 100) : 0;
-  
+
   return {
     primaryIntent: primaryIntent,
     confidence: Math.round(confidence),
@@ -596,18 +601,18 @@ function analyzeKeywordIntent(text, title, description) {
 // Helper function: Extract Open Graph data
 function analyzeOpenGraph($, baseUrl) {
   console.log('=== analyzeOpenGraph DEBUG START ===');
-  
+
   console.log('Starting Open Graph extraction...');
-  
+
   const openGraph = {}; // Declare openGraph at the start
-  
+
   // Basic Open Graph properties
   const basicProps = [
     'og:title', 'og:description', 'og:type', 'og:url', 'og:image',
     'og:image:width', 'og:image:height', 'og:image:alt', 'og:image:type',
     'og:site_name', 'og:locale', 'og:video', 'og:audio'
   ];
-  
+
   // Extract basic OG properties
   basicProps.forEach(prop => {
     const value = $(`meta[property="${prop}"], meta[name="${prop}"]`).attr('content');
@@ -615,13 +620,13 @@ function analyzeOpenGraph($, baseUrl) {
       openGraph[prop] = value;
     }
   });
-  
+
   // Extract structured OG data
   openGraph.images = [];
   $('meta[property^="og:image"]').each((i, element) => {
     const $element = $(element);
     const image = $element.attr('content');
-    
+
     if (image && !openGraph.images.some(img => img.url === image)) {
       const imageData = {
         url: image,
@@ -630,109 +635,109 @@ function analyzeOpenGraph($, baseUrl) {
         alt: null,
         type: null
       };
-      
+
       // Try to get associated properties
       const width = $(`meta[property="${i ? `og:image:${i}:width` : 'og:image:width'}"]`).attr('content');
       const height = $(`meta[property="${i ? `og:image:${i}:height` : 'og:image:height'}"]`).attr('content');
       const alt = $(`meta[property="${i ? `og:image:${i}:alt` : 'og:image:alt'}"]`).attr('content');
       const type = $(`meta[property="${i ? `og:image:${i}:type` : 'og:image:type'}"]`).attr('content');
-      
+
       if (width) imageData.width = parseInt(width);
       if (height) imageData.height = parseInt(height);
       if (alt) imageData.alt = alt;
       if (type) imageData.type = type;
-      
+
       openGraph.images.push(imageData);
     }
   });
-  
-        // Social media specific properties
-        const socialProps = [
-          'fb:app_id', 'fb:admins', 'fb:page_id',
-          'twitter:card', 'twitter:site', 'twitter:creator', 'twitter:title',
-          'twitter:description', 'twitter:image', 'twitter:image:alt'
-        ];
-        
-        openGraph.facebook = {};
-        openGraph.twitter = {};
-        
-        socialProps.forEach(prop => {
-          const value = $(`meta[property="${prop}"], meta[name="${prop}"]`).attr('content');
-          if (value) {
-            if (prop.startsWith('fb:')) {
-              openGraph.facebook[prop.replace('fb:', '')] = value;
-            } else if (prop.startsWith('twitter:')) {
-              openGraph.twitter[prop.replace('twitter:', '')] = value;
-            }
-          }
-        });
-  
-        // Additional SEO properties
-        const seoProps = [
-          'article:author', 'article:published_time', 'article:modified_time',
-          'article:section', 'article:tag', 'article:publisher',
-          'video:duration', 'video:release_date', 'video:tag'
-        ];
-        
-        openGraph.article = {};
-        openGraph.video = {};
-        
-        seoProps.forEach(prop => {
-          const value = $(`meta[property="${prop}"], meta[name="${prop}"]`).attr('content');
-          if (value) {
-            if (prop.startsWith('article:')) {
-              openGraph.article[prop.replace('article:', '')] = value;
-            } else if (prop.startsWith('video:')) {
-              openGraph.video[prop.replace('video:', '')] = value;
-            }
-          }
-        });
-  
-        // Validate and analyze Open Graph data
-        const hasBasicOG = !!(openGraph['og:title'] || openGraph['og:description'] || openGraph['og:image']);
-        const hasSocialProof = !!(openGraph.facebook?.app_id || openGraph.twitter?.card || openGraph['og:site_name']);
-        const hasRichMedia = !!(openGraph.images.length > 0 || openGraph.video?.duration || openGraph['og:audio']);
-        
-        // Make image URLs absolute
-        if (openGraph.images && openGraph.images.length > 0) {
-          openGraph.images = openGraph.images.map(img => {
-            if (img.url && !img.url.startsWith('http')) {
-              try {
-                img.url = new URL(img.url, baseUrl).href;
-              } catch (e) {
-                // Keep original if URL construction fails
-              }
-            }
-            return img;
-          });
+
+  // Social media specific properties
+  const socialProps = [
+    'fb:app_id', 'fb:admins', 'fb:page_id',
+    'twitter:card', 'twitter:site', 'twitter:creator', 'twitter:title',
+    'twitter:description', 'twitter:image', 'twitter:image:alt'
+  ];
+
+  openGraph.facebook = {};
+  openGraph.twitter = {};
+
+  socialProps.forEach(prop => {
+    const value = $(`meta[property="${prop}"], meta[name="${prop}"]`).attr('content');
+    if (value) {
+      if (prop.startsWith('fb:')) {
+        openGraph.facebook[prop.replace('fb:', '')] = value;
+      } else if (prop.startsWith('twitter:')) {
+        openGraph.twitter[prop.replace('twitter:', '')] = value;
+      }
+    }
+  });
+
+  // Additional SEO properties
+  const seoProps = [
+    'article:author', 'article:published_time', 'article:modified_time',
+    'article:section', 'article:tag', 'article:publisher',
+    'video:duration', 'video:release_date', 'video:tag'
+  ];
+
+  openGraph.article = {};
+  openGraph.video = {};
+
+  seoProps.forEach(prop => {
+    const value = $(`meta[property="${prop}"], meta[name="${prop}"]`).attr('content');
+    if (value) {
+      if (prop.startsWith('article:')) {
+        openGraph.article[prop.replace('article:', '')] = value;
+      } else if (prop.startsWith('video:')) {
+        openGraph.video[prop.replace('video:', '')] = value;
+      }
+    }
+  });
+
+  // Validate and analyze Open Graph data
+  const hasBasicOG = !!(openGraph['og:title'] || openGraph['og:description'] || openGraph['og:image']);
+  const hasSocialProof = !!(openGraph.facebook?.app_id || openGraph.twitter?.card || openGraph['og:site_name']);
+  const hasRichMedia = !!(openGraph.images.length > 0 || openGraph.video?.duration || openGraph['og:audio']);
+
+  // Make image URLs absolute
+  if (openGraph.images && openGraph.images.length > 0) {
+    openGraph.images = openGraph.images.map(img => {
+      if (img.url && !img.url.startsWith('http')) {
+        try {
+          img.url = new URL(img.url, baseUrl).href;
+        } catch (e) {
+          // Keep original if URL construction fails
         }
-        
-        return {
-          found: hasBasicOG,
-          hasSocialProof: hasSocialProof,
-          hasRichMedia: hasRichMedia,
-          basic: {
-            title: openGraph['og:title'] || null,
-            description: openGraph['og:description'] || null,
-            type: openGraph['og:type'] || null,
-            url: openGraph['og:url'] || null,
-            siteName: openGraph['og:site_name'] || null,
-            locale: openGraph['og:locale'] || null
-          },
-          images: openGraph.images,
-          facebook: openGraph.facebook,
-          twitter: openGraph.twitter,
-          article: openGraph.article,
-          video: openGraph.video,
-          totalTags: Object.keys(openGraph).length,
-          completeness: calculateOpenGraphCompleteness(openGraph)
-        };
-  
+      }
+      return img;
+    });
+  }
+
+  return {
+    found: hasBasicOG,
+    hasSocialProof: hasSocialProof,
+    hasRichMedia: hasRichMedia,
+    basic: {
+      title: openGraph['og:title'] || null,
+      description: openGraph['og:description'] || null,
+      type: openGraph['og:type'] || null,
+      url: openGraph['og:url'] || null,
+      siteName: openGraph['og:site_name'] || null,
+      locale: openGraph['og:locale'] || null
+    },
+    images: openGraph.images,
+    facebook: openGraph.facebook,
+    twitter: openGraph.twitter,
+    article: openGraph.article,
+    video: openGraph.video,
+    totalTags: Object.keys(openGraph).length,
+    completeness: calculateOpenGraphCompleteness(openGraph)
+  };
+
   console.log('=== analyzeOpenGraph DEBUG END ===');
   console.log('OG found:', result.found);
   console.log('OG title:', result.basic.title);
   console.log('Returning result');
-  
+
   return result;
 }
 
@@ -740,7 +745,7 @@ function analyzeOpenGraph($, baseUrl) {
 function calculateOpenGraphCompleteness(ogData) {
   let score = 0;
   const maxScore = 100;
-  
+
   // Basic properties (60 points)
   if (ogData['og:title']) score += 15;
   if (ogData['og:description']) score += 15;
@@ -748,19 +753,19 @@ function calculateOpenGraphCompleteness(ogData) {
   if (ogData['og:url']) score += 5;
   if (ogData['og:type']) score += 5;
   if (ogData['og:site_name']) score += 5;
-  
+
   // Social media integration (20 points)
   if (ogData.facebook?.app_id || ogData.facebook?.page_id) score += 10;
   if (ogData.twitter?.card) score += 10;
-  
+
   // Rich media (15 points)
   if (ogData.images && ogData.images.length > 1) score += 5;
   if (ogData.article?.published_time || ogData.video?.duration) score += 10;
-  
+
   // Additional optimization (5 points)
   if (ogData['og:locale']) score += 3;
   if (ogData.images && ogData.images.some(img => img.width && img.height)) score += 2;
-  
+
   return Math.min(maxScore, score);
 }
 
@@ -769,18 +774,18 @@ function analyzeHreflang($, baseUrl, htmlContent = '') {
   console.log('=== analyzeHreflang DEBUG ===');
   console.log('Base URL:', baseUrl);
   console.log('HTML link tags found:', $('link[rel="alternate"][hreflang]').length);
-  
+
   const hreflangs = [];
   const languages = new Set();
-  
+
   // 1. Check HTML link tags
   $('link[rel="alternate"][hreflang]').each((i, link) => {
     const $link = $(link);
     const hreflang = $link.attr('hreflang');
     let href = $link.attr('href');
-    
+
     console.log(`Link ${i}: hreflang="${hreflang}", href="${href}"`);
-    
+
     if (hreflang && href) {
       // Make URL absolute
       if (!href.startsWith('http') && !href.startsWith('//')) {
@@ -792,7 +797,7 @@ function analyzeHreflang($, baseUrl, htmlContent = '') {
       } else if (href.startsWith('//')) {
         href = new URL(baseUrl).protocol + href;
       }
-      
+
       languages.add(hreflang);
       hreflangs.push({
         lang: hreflang,
@@ -801,14 +806,14 @@ function analyzeHreflang($, baseUrl, htmlContent = '') {
       });
     }
   });
-  
+
   // 2. Check for x-default specifically
   const xDefault = $('link[rel="alternate"][hreflang="x-default"]').attr('href');
   let xDefaultUrl = null;
   if (xDefault) {
     xDefaultUrl = xDefault.startsWith('http') ? xDefault : new URL(xDefault, baseUrl).href;
   }
-  
+
   // 3. Also check HTML content for hreflang in meta tags or comments (some sites use this)
   const hreflangInContent = htmlContent.match(/hreflang=["']([^"']+)["']/gi);
   if (hreflangInContent) {
@@ -819,7 +824,7 @@ function analyzeHreflang($, baseUrl, htmlContent = '') {
       }
     });
   }
-  
+
   // Validate hreflang implementation
   const isValid = hreflangs.length > 0 && hreflangs.every(h => h.href && h.lang);
   const hasSelfReference = hreflangs.some(h => {
@@ -829,7 +834,7 @@ function analyzeHreflang($, baseUrl, htmlContent = '') {
       return false;
     }
   });
-  
+
   const result = {
     found: hreflangs.length > 0,
     count: hreflangs.length,
@@ -840,14 +845,14 @@ function analyzeHreflang($, baseUrl, htmlContent = '') {
     isValid: isValid && (hreflangs.length > 1 || hasSelfReference), // Valid if multiple languages or self-reference
     hasSelfReference: hasSelfReference
   };
-  
+
   console.log('Hreflang analysis result:');
   console.log('- Found:', result.found);
   console.log('- Count:', result.count);
   console.log('- Languages:', result.languages);
   console.log('- Is valid:', result.isValid);
   console.log('- Has self-reference:', result.hasSelfReference);
-  
+
   return result;
 }
 
@@ -856,19 +861,19 @@ function extractDetailedLinks($, targetUrl) {
   const internalLinks = [];
   const externalLinks = [];
   let domain = '';
-  
+
   try {
     domain = new URL(targetUrl).hostname;
-  } catch (e) {}
-  
+  } catch (e) { }
+
   $('a[href]').each((i, link) => {
     const $link = $(link);
     const href = $link.attr('href');
     if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:')) return;
-    
+
     const linkText = $link.text().trim() || $link.find('img').attr('alt') || '[Image Link]';
     const isInternal = href.startsWith('/') || href.includes(domain) || href.startsWith('./') || href.startsWith('../');
-    
+
     // Convert relative URLs to absolute
     let fullUrl = href;
     try {
@@ -878,7 +883,7 @@ function extractDetailedLinks($, targetUrl) {
     } catch (e) {
       fullUrl = href;
     }
-    
+
     const linkData = {
       text: linkText.substring(0, 100), // Limit text length
       url: fullUrl,
@@ -887,14 +892,14 @@ function extractDetailedLinks($, targetUrl) {
       hasTitle: !!$link.attr('title'),
       title: $link.attr('title') || null
     };
-    
+
     if (isInternal) {
       internalLinks.push(linkData);
     } else if (linkData.isExternal) {
       externalLinks.push(linkData);
     }
   });
-  
+
   return {
     internal: internalLinks,
     external: externalLinks,
@@ -907,17 +912,17 @@ function extractDetailedLinks($, targetUrl) {
 function analyzeResourceSizes(report) {
   // Use Lighthouse's network-requests audit for accurate data
   const networkRequests = report.audits['network-requests']?.details?.items || [];
-  
+
   // Also try to get data from other Lighthouse audits for cross-validation
   const totalByteWeight = report.audits['total-byte-weight']?.numericValue || 0;
-  
+
   let jsSize = 0;
   let cssSize = 0;
   let imageSize = 0;
   let fontSize = 0;
   let htmlSize = 0;
   let otherSize = 0;
-  
+
   const resourceBreakdown = {
     js: [],
     css: [],
@@ -926,29 +931,29 @@ function analyzeResourceSizes(report) {
     html: [],
     other: []
   };
-  
+
   networkRequests.forEach(item => {
     const mimeType = (item.mimeType || '').toLowerCase();
     const url = item.url || '';
-    
+
     // Use resourceSize (transferred) if available, otherwise use transferSize
     const size = item.resourceSize || item.transferSize || 0;
-    
+
     // More accurate MIME type detection
-    if (mimeType.includes('javascript') || mimeType.includes('application/javascript') || 
-        mimeType.includes('text/javascript') || url.match(/\.js($|\?|#)/i)) {
+    if (mimeType.includes('javascript') || mimeType.includes('application/javascript') ||
+      mimeType.includes('text/javascript') || url.match(/\.js($|\?|#)/i)) {
       jsSize += size;
       resourceBreakdown.js.push({ url: url, size: size, mimeType: mimeType });
-    } else if (mimeType.includes('css') || mimeType.includes('text/css') || 
-               url.match(/\.css($|\?|#)/i)) {
+    } else if (mimeType.includes('css') || mimeType.includes('text/css') ||
+      url.match(/\.css($|\?|#)/i)) {
       cssSize += size;
       resourceBreakdown.css.push({ url: url, size: size, mimeType: mimeType });
-    } else if (mimeType.includes('image') || 
-               url.match(/\.(jpg|jpeg|png|gif|webp|svg|ico|bmp)($|\?|#)/i)) {
+    } else if (mimeType.includes('image') ||
+      url.match(/\.(jpg|jpeg|png|gif|webp|svg|ico|bmp)($|\?|#)/i)) {
       imageSize += size;
       resourceBreakdown.images.push({ url: url, size: size, mimeType: mimeType });
     } else if (mimeType.includes('font') || mimeType.includes('application/font') ||
-               url.match(/\.(woff|woff2|ttf|otf|eot|sfnt)($|\?|#)/i)) {
+      url.match(/\.(woff|woff2|ttf|otf|eot|sfnt)($|\?|#)/i)) {
       fontSize += size;
       resourceBreakdown.fonts.push({ url: url, size: size, mimeType: mimeType });
     } else if (mimeType.includes('html') || mimeType.includes('text/html')) {
@@ -959,13 +964,13 @@ function analyzeResourceSizes(report) {
       resourceBreakdown.other.push({ url: url, size: size, mimeType: mimeType });
     }
   });
-  
+
   // Calculate total from all resources
   let calculatedTotal = jsSize + cssSize + imageSize + fontSize + htmlSize + otherSize;
-  
+
   // Use Lighthouse's total-byte-weight if available and more accurate
   const totalSize = totalByteWeight > calculatedTotal ? totalByteWeight : calculatedTotal;
-  
+
   return {
     js: { size: jsSize, count: resourceBreakdown.js.length, items: resourceBreakdown.js.slice(0, 10) },
     css: { size: cssSize, count: resourceBreakdown.css.length, items: resourceBreakdown.css.slice(0, 10) },
@@ -984,28 +989,28 @@ async function analyzeSitemapContent(sitemapUrl, currentUrl) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
-    
-    const response = await fetch(sitemapUrl, { 
+
+    const response = await fetch(sitemapUrl, {
       signal: controller.signal,
       headers: { 'Accept': 'application/xml, text/xml' }
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (!response.ok) {
       return {
         analyzed: false,
         error: `HTTP ${response.status}: ${response.statusText}`
       };
     }
-    
+
     const content = await response.text();
     const $ = cheerio.load(content, { xmlMode: true });
-    
+
     // Check if this is a sitemap index or individual sitemap
     const sitemapIndex = $('sitemapindex').length > 0;
     const urlset = $('urlset').length > 0;
-    
+
     let urls = [];
     let subpageCoverage = {
       totalPages: 0,
@@ -1016,7 +1021,7 @@ async function analyzeSitemapContent(sitemapUrl, currentUrl) {
       hasCurrentPage: false,
       currentPageInSitemap: false
     };
-    
+
     if (urlset) {
       // Individual sitemap
       urls = $('url').map((i, el) => {
@@ -1024,7 +1029,7 @@ async function analyzeSitemapContent(sitemapUrl, currentUrl) {
         const lastmod = $(el).find('lastmod').text();
         const changefreq = $(el).find('changefreq').text();
         const priority = $(el).find('priority').text();
-        
+
         // Categorize the URL type
         let urlType = 'other';
         if (loc.includes('/category/') || loc.includes('/tag/')) {
@@ -1044,7 +1049,7 @@ async function analyzeSitemapContent(sitemapUrl, currentUrl) {
           urlType = 'static';
           subpageCoverage.staticPages++;
         }
-        
+
         return {
           loc: loc,
           lastmod: lastmod,
@@ -1053,9 +1058,9 @@ async function analyzeSitemapContent(sitemapUrl, currentUrl) {
           type: urlType
         };
       }).get();
-      
+
       subpageCoverage.totalPages = urls.length;
-      
+
     } else if (sitemapIndex) {
       // Sitemap index - list child sitemaps
       urls = $('sitemap').map((i, el) => {
@@ -1065,10 +1070,10 @@ async function analyzeSitemapContent(sitemapUrl, currentUrl) {
           type: 'sitemap-index'
         };
       }).get();
-      
+
       subpageCoverage.sitemapCount = urls.length;
     }
-    
+
     return {
       analyzed: true,
       type: sitemapIndex ? 'sitemap-index' : 'urlset',
@@ -1077,7 +1082,7 @@ async function analyzeSitemapContent(sitemapUrl, currentUrl) {
       subpageCoverage: subpageCoverage,
       hasValidXml: true
     };
-    
+
   } catch (error) {
     return {
       analyzed: false,
@@ -1091,7 +1096,7 @@ async function checkSitemap(url, robotsTxtSitemaps = [], $ = null) {
   try {
     const urlObj = new URL(url);
     const foundSitemaps = [];
-    
+
     // 1. Check sitemaps from robots.txt first (most reliable)
     if (robotsTxtSitemaps && robotsTxtSitemaps.length > 0) {
       for (const sitemapUrl of robotsTxtSitemaps) {
@@ -1101,13 +1106,13 @@ async function checkSitemap(url, robotsTxtSitemaps = [], $ = null) {
           if (!sitemapUrl.startsWith('http')) {
             absoluteUrl = new URL(sitemapUrl, url).href;
           }
-          
+
           const response = await fetchContent(absoluteUrl, {
             method: 'HEAD',
             timeout: 5000,
             userAgent: 'SEO-Audit-Tool/1.0'
           });
-          
+
           if (response.ok) {
             const sitemapData = await analyzeSitemapContent(absoluteUrl, url);
             foundSitemaps.push({
@@ -1154,7 +1159,7 @@ async function checkSitemap(url, robotsTxtSitemaps = [], $ = null) {
         }
       }
     }
-    
+
     // 2. Check HTML for sitemap links
     if ($) {
       $('link[rel="sitemap"]').each((i, el) => {
@@ -1167,11 +1172,11 @@ async function checkSitemap(url, robotsTxtSitemaps = [], $ = null) {
               source: 'HTML link',
               accessible: null // Not checked yet
             });
-          } catch (e) {}
+          } catch (e) { }
         }
       });
     }
-    
+
     // 3. Check common sitemap paths (only if nothing found yet)
     if (foundSitemaps.length === 0) {
       const commonSitemapPaths = [
@@ -1186,20 +1191,20 @@ async function checkSitemap(url, robotsTxtSitemaps = [], $ = null) {
         '/sitemap_product.xml',
         '/sitemap_category.xml'
       ];
-      
+
       for (const path of commonSitemapPaths) {
         try {
           const sitemapUrl = `${urlObj.protocol}//${urlObj.hostname}${path}`;
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 3000);
-          
-          const response = await fetch(sitemapUrl, { 
+
+          const response = await fetch(sitemapUrl, {
             signal: controller.signal,
             method: 'HEAD'
           });
-          
+
           clearTimeout(timeoutId);
-          
+
           if (response.ok) {
             const contentType = response.headers.get('content-type') || '';
             if (contentType.includes('xml') || contentType.includes('text')) {
@@ -1219,7 +1224,7 @@ async function checkSitemap(url, robotsTxtSitemaps = [], $ = null) {
         }
       }
     }
-    
+
     // Aggregate subpage coverage from all analyzed sitemaps
     const totalSubpageCoverage = {
       totalPages: 0,
@@ -1231,7 +1236,7 @@ async function checkSitemap(url, robotsTxtSitemaps = [], $ = null) {
       currentPageInSitemap: false,
       sitemapsWithCurrentPage: 0
     };
-    
+
     foundSitemaps.forEach(sitemap => {
       if (sitemap.analyzed && sitemap.analysis.subpageCoverage) {
         const coverage = sitemap.analysis.subpageCoverage;
@@ -1240,7 +1245,7 @@ async function checkSitemap(url, robotsTxtSitemaps = [], $ = null) {
         totalSubpageCoverage.productPages += coverage.productPages || 0;
         totalSubpageCoverage.blogPages += coverage.blogPages || 0;
         totalSubpageCoverage.staticPages += coverage.staticPages || 0;
-        
+
         if (coverage.currentPageInSitemap) {
           totalSubpageCoverage.hasCurrentPage = true;
           totalSubpageCoverage.currentPageInSitemap = true;
@@ -1248,7 +1253,7 @@ async function checkSitemap(url, robotsTxtSitemaps = [], $ = null) {
         }
       }
     });
-    
+
     const result = {
       found: foundSitemaps.length > 0,
       sitemaps: foundSitemaps,
@@ -1259,13 +1264,13 @@ async function checkSitemap(url, robotsTxtSitemaps = [], $ = null) {
       subpageCoverage: totalSubpageCoverage,
       hasCurrentPageInSitemap: totalSubpageCoverage.currentPageInSitemap
     };
-    
+
     console.log('=== checkSitemap DEBUG ===');
     console.log('Found sitemaps:', result.found);
     console.log('Analyzed:', result.analyzed);
     console.log('SubpageCoverage total:', result.subpageCoverage.totalPages);
     console.log('Has current page:', result.hasCurrentPageInSitemap);
-    
+
     return result;
   } catch (error) {
     return {
@@ -1291,74 +1296,74 @@ async function checkSubpagePaths(mainUrl, robotsTxtData, sitemapData) {
     console.log('sitemapData exists:', !!sitemapData);
     console.log('robotsTxt has disallowRules:', !!(robotsTxtData?.disallowRules));
     console.log('sitemapData analyzed:', !!(sitemapData?.analyzed));
-  const urlObj = new URL(mainUrl);
-  const baseUrl = `${urlObj.protocol}//${urlObj.hostname}`;
-  
-  // Common subpage paths to check
-  const commonPaths = [
-    '/admin',
-    '/wp-admin',
-    '/login',
-    '/dashboard',
-    '/category/example',
-    '/blog',
-    '/products',
-    '/services',
-    '/contact',
-    '/about',
-    '/search',
-    '/api',
-    '/user/profile',
-    '/cart',
-    '/checkout'
-  ];
-  
-  const subpageResults = [];
-  
-  for (const path of commonPaths) {
-    const fullUrl = baseUrl + path;
-    const pathAllowed = robotsTxtData.disallowRules && robotsTxtData.allowRules ? 
-      checkPathRobots(path, robotsTxtData.disallowRules, robotsTxtData.allowRules) : true;
-    
-    // Check if this path exists in sitemap
-    let inSitemap = false;
-    if (sitemapData.analyzed && sitemapData.sitemaps) {
-      for (const sitemap of sitemapData.sitemaps) {
-        if (sitemap.analyzed && sitemap.analysis && sitemap.analysis.urls) {
-          inSitemap = sitemap.analysis.urls.some(url => 
-            url.loc && (url.loc === fullUrl || url.loc.startsWith(fullUrl))
-          );
-          if (inSitemap) break;
+    const urlObj = new URL(mainUrl);
+    const baseUrl = `${urlObj.protocol}//${urlObj.hostname}`;
+
+    // Common subpage paths to check
+    const commonPaths = [
+      '/admin',
+      '/wp-admin',
+      '/login',
+      '/dashboard',
+      '/category/example',
+      '/blog',
+      '/products',
+      '/services',
+      '/contact',
+      '/about',
+      '/search',
+      '/api',
+      '/user/profile',
+      '/cart',
+      '/checkout'
+    ];
+
+    const subpageResults = [];
+
+    for (const path of commonPaths) {
+      const fullUrl = baseUrl + path;
+      const pathAllowed = robotsTxtData.disallowRules && robotsTxtData.allowRules ?
+        checkPathRobots(path, robotsTxtData.disallowRules, robotsTxtData.allowRules) : true;
+
+      // Check if this path exists in sitemap
+      let inSitemap = false;
+      if (sitemapData.analyzed && sitemapData.sitemaps) {
+        for (const sitemap of sitemapData.sitemaps) {
+          if (sitemap.analyzed && sitemap.analysis && sitemap.analysis.urls) {
+            inSitemap = sitemap.analysis.urls.some(url =>
+              url.loc && (url.loc === fullUrl || url.loc.startsWith(fullUrl))
+            );
+            if (inSitemap) break;
+          }
         }
       }
+
+      subpageResults.push({
+        path: path,
+        url: fullUrl,
+        robotsAllowed: pathAllowed,
+        inSitemap: inSitemap,
+        recommendedAction: getSubpageRecommendation(path, pathAllowed, inSitemap)
+      });
     }
-    
-    subpageResults.push({
-      path: path,
-      url: fullUrl,
-      robotsAllowed: pathAllowed,
-      inSitemap: inSitemap,
-      recommendedAction: getSubpageRecommendation(path, pathAllowed, inSitemap)
-    });
-  }
-  
-  const result = {
-    checkedPaths: subpageResults,
-    summary: {
-      totalChecked: subpageResults.length,
-      robotsAllowed: subpageResults.filter(p => p.robotsAllowed).length,
-      inSitemap: subpageResults.filter(p => p.inSitemap).length,
-      properlyConfigured: subpageResults.filter(p => 
-        (p.path.includes('/admin') || p.path.includes('/wp-admin') || p.path.includes('/api')) ? 
-        !p.robotsAllowed && !p.inSitemap : // Admin/API should be blocked
-        (p.path.includes('/category') || p.path.includes('/blog') || p.path.includes('/products')) ?
-        p.robotsAllowed && p.inSitemap : // Content should be allowed and in sitemap
-        p.robotsAllowed // Other pages should be allowed
-      ).length
-    }
-  };
-  console.log('checkSubpagePaths returning result');
-  return result;
+
+    const result = {
+      checkedPaths: subpageResults,
+      summary: {
+        totalChecked: subpageResults.length,
+        robotsAllowed: subpageResults.filter(p => p.robotsAllowed).length,
+        inSitemap: subpageResults.filter(p => p.inSitemap).length,
+        properlyConfigured: subpageResults.filter(p =>
+          (p.path.includes('/admin') || p.path.includes('/wp-admin') || p.path.includes('/api')) ?
+            !p.robotsAllowed && !p.inSitemap : // Admin/API should be blocked
+            (p.path.includes('/category') || p.path.includes('/blog') || p.path.includes('/products')) ?
+              p.robotsAllowed && p.inSitemap : // Content should be allowed and in sitemap
+              p.robotsAllowed // Other pages should be allowed
+        ).length
+      }
+    };
+    console.log('checkSubpagePaths returning result');
+    return result;
   } catch (error) {
     console.error('Error in checkSubpagePaths:', error);
     return {
@@ -1378,24 +1383,24 @@ function getSubpageRecommendation(path, robotsAllowed, inSitemap) {
   const isAdminPath = path.includes('/admin') || path.includes('/wp-admin') || path.includes('/dashboard') || path.includes('/api');
   const isContentPath = path.includes('/category') || path.includes('/blog') || path.includes('/products') || path.includes('/services');
   const isImportantPath = path.includes('/contact') || path.includes('/about') || path.includes('/login');
-  
+
   if (isAdminPath) {
     if (robotsAllowed) return "Should be blocked in robots.txt";
     if (inSitemap) return "Should not be in sitemap";
     return "Properly configured";
   }
-  
+
   if (isContentPath) {
     if (!robotsAllowed) return "Should be allowed in robots.txt";
     if (!inSitemap) return "Should be included in sitemap";
     return "Properly configured";
   }
-  
+
   if (isImportantPath) {
     if (!robotsAllowed) return "Should be allowed in robots.txt";
     return inSitemap ? "Properly configured" : "Consider adding to sitemap";
   }
-  
+
   return robotsAllowed ? "Properly configured" : "Review blocking rules";
 }
 
@@ -1403,257 +1408,257 @@ async function scrapeSite(targetUrl) {
   console.log(`Step 1: Launching Chrome for ${targetUrl}...`);
 
   const { default: lighthouse } = await import('lighthouse');
-  
+
   // Launch Chrome (Desktop Mode for stability)
   const chrome = await chromeLauncher.launch({
     chromeFlags: ['--headless', '--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
-    userDataDir: LOCAL_CHROME_PATH 
+    userDataDir: LOCAL_CHROME_PATH
   });
-  
+
   // A. Lighthouse (Speed/Tech)
   console.log("Step 2: Running Lighthouse...");
-  let metrics = { 
-    performance: 0, 
-    seo: 0, 
-    accessibility: 0, 
+  let metrics = {
+    performance: 0,
+    seo: 0,
+    accessibility: 0,
     bestPractices: 0,
-    mobileFriendly: false, 
-    mobileScore: 0, 
+    mobileFriendly: false,
+    mobileScore: 0,
     mobileIssues: [],
     technical: {},
     security: {}
   };
-  
+
   try {
-      const options = { 
-        logLevel: 'error', 
-        output: 'json', 
-        onlyCategories: ['performance', 'seo', 'accessibility', 'best-practices'], 
-        port: chrome.port,
-        formFactor: 'desktop',
-        screenEmulation: { mobile: false },
-        settings: {
-          gatherMode: 'full'
-        }
-      };
-      
-      const runnerResult = await lighthouse(targetUrl, options);
-      const report = runnerResult.lhr;
+    const options = {
+      logLevel: 'error',
+      output: 'json',
+      onlyCategories: ['performance', 'seo', 'accessibility', 'best-practices'],
+      port: chrome.port,
+      formFactor: 'desktop',
+      screenEmulation: { mobile: false },
+      settings: {
+        gatherMode: 'full'
+      }
+    };
 
-      if (report.categories.performance) {
-          metrics.performance = Math.round(report.categories.performance.score * 100);
-          console.log(`✅ Speed Score: ${metrics.performance}`);
-      }
-      if (report.categories.seo) {
-          metrics.seo = Math.round(report.categories.seo.score * 100);
-      }
-      if (report.categories.accessibility) {
-          metrics.accessibility = Math.round(report.categories.accessibility.score * 100);
-      }
-      if (report.categories['best-practices']) {
-          metrics.bestPractices = Math.round(report.categories['best-practices'].score * 100);
-      }
-      
-      // Enhanced mobile-friendly checks
-      const viewport = report.audits['viewport'];
-      const tapTargets = report.audits['tap-targets'];
-      const contentWidth = report.audits['content-width'];
-      const fontSizes = report.audits['font-size'];
-      const plugins = report.audits['plugins'];
-      
-      let mobileIssues = [];
-      let mobileScore = 100;
-      
-      // Check viewport meta tag
-      if (!viewport || viewport.score !== 1) {
-        mobileIssues.push("Missing or improper viewport meta tag");
-        mobileScore -= 25;
-      }
-      
-      // Check tap targets (minimum 48x48px)
-      if (tapTargets && tapTargets.score < 1) {
-        mobileIssues.push("Tap targets too small for mobile interaction");
-        mobileScore -= 15;
-      }
-      
-      // Check content width (no horizontal scrolling)
-      if (contentWidth && contentWidth.score < 1) {
-        mobileIssues.push("Content too wide, causes horizontal scrolling");
-        mobileScore -= 20;
-      }
-      
-      // Check font sizes (readable on mobile)
-      if (fontSizes && fontSizes.score < 1) {
-        mobileIssues.push("Text too small to read on mobile");
-        mobileScore -= 10;
-      }
-      
-      // Check for plugins (Flash, etc.)
-      if (plugins && plugins.score < 1) {
-        mobileIssues.push("Uses unsupported plugins on mobile");
-        mobileScore -= 10;
-      }
-      
-      metrics.mobileFriendly = mobileScore >= 80;
-      metrics.mobileIssues = mobileIssues;
-      metrics.mobileScore = mobileScore;
+    const runnerResult = await lighthouse(targetUrl, options);
+    const report = runnerResult.lhr;
 
-       // Enhanced technical metrics with comprehensive Lighthouse speed data
-      const fcpAudit = report.audits['first-contentful-paint'];
-      const lcpAudit = report.audits['largest-contentful-paint'];
-      const clsAudit = report.audits['cumulative-layout-shift'];
-      const tbtAudit = report.audits['total-blocking-time'];
-      const siAudit = report.audits['speed-index'];
-      const ttiAudit = report.audits['interactive'];
-      const ttfbAudit = report.audits['server-response-time'];
-      const fidAudit = report.audits['max-potential-fid'];
-      const domSizeAudit = report.audits['dom-size'];
-      const resourceSummary = report.audits['resource-summary'];
-      
-      metrics.technical = {
-        // Core Web Vitals - Display values and numeric values
-        firstContentfulPaint: {
-          displayValue: fcpAudit?.displayValue || 'N/A',
-          numericValue: fcpAudit?.numericValue || null,
-          score: fcpAudit?.score || null,
-          unit: 'ms'
-        },
-        largestContentfulPaint: {
-          displayValue: lcpAudit?.displayValue || 'N/A',
-          numericValue: lcpAudit?.numericValue || null,
-          score: lcpAudit?.score || null,
-          unit: 'ms'
-        },
-        cumulativeLayoutShift: {
-          displayValue: clsAudit?.displayValue || 'N/A',
-          numericValue: clsAudit?.numericValue || null,
-          score: clsAudit?.score || null,
-          unit: ''
-        },
-        totalBlockingTime: {
-          displayValue: tbtAudit?.displayValue || 'N/A',
-          numericValue: tbtAudit?.numericValue || null,
-          score: tbtAudit?.score || null,
-          unit: 'ms'
-        },
-        speedIndex: {
-          displayValue: siAudit?.displayValue || 'N/A',
-          numericValue: siAudit?.numericValue || null,
-          score: siAudit?.score || null,
-          unit: 's'
-        },
-        timeToInteractive: {
-          displayValue: ttiAudit?.displayValue || 'N/A',
-          numericValue: ttiAudit?.numericValue || null,
-          score: ttiAudit?.score || null,
-          unit: 's'
-        },
-        // Additional Speed Metrics
-        timeToFirstByte: {
-          displayValue: ttfbAudit?.displayValue || 'N/A',
-          numericValue: ttfbAudit?.numericValue || null,
-          score: ttfbAudit?.score || null,
-          unit: 'ms'
-        },
-        firstInputDelay: {
-          displayValue: fidAudit?.displayValue || 'N/A',
-          numericValue: fidAudit?.numericValue || null,
-          score: fidAudit?.score || null,
-          unit: 'ms'
-        },
-        // Resource Metrics
-        resourceSummary: {
-          totalRequests: resourceSummary?.details?.items?.[0]?.requestCount || null,
-          totalSize: resourceSummary?.details?.items?.[0]?.size || null,
-          displayValue: resourceSummary?.displayValue || 'N/A'
-        },
-        domSize: {
-          displayValue: domSizeAudit?.displayValue || 'N/A',
-          numericValue: domSizeAudit?.numericValue || null,
-          unit: 'nodes'
-        },
-        // Network and Resource Breakdown
-        networkRequests: report.audits['network-requests']?.details?.items?.length || 0,
-        renderBlockingResources: report.audits['render-blocking-resources']?.details?.items?.length || 0,
-        unusedJavaScript: {
-          displayValue: report.audits['unused-javascript']?.displayValue || 'N/A',
-          wastedBytes: report.audits['unused-javascript']?.details?.overallSavingsBytes || 0
-        },
-        unusedCSS: {
-          displayValue: report.audits['unused-css-rules']?.displayValue || 'N/A',
-          wastedBytes: report.audits['unused-css-rules']?.details?.overallSavingsBytes || 0
-        },
-        // Performance Budget
-        totalByteWeight: {
-          displayValue: report.audits['total-byte-weight']?.displayValue || 'N/A',
-          numericValue: report.audits['total-byte-weight']?.numericValue || null,
-          unit: 'bytes'
-        },
-        // Opportunities (Performance improvements)
-        opportunities: {
-          reduceRenderBlockingResources: report.audits['render-blocking-resources']?.displayValue || null,
-          enableTextCompression: report.audits['uses-text-compression']?.displayValue || null,
-          modernImageFormats: report.audits['uses-optimized-images']?.displayValue || null,
-          efficientAnimatedContent: report.audits['efficient-animated-content']?.displayValue || null,
-          preconnectToRequiredOrigins: report.audits['uses-rel-preconnect']?.displayValue || null
-        },
-        // Resource size breakdown by type
-        resourceSizes: analyzeResourceSizes(report)
-      };
+    if (report.categories.performance) {
+      metrics.performance = Math.round(report.categories.performance.score * 100);
+      console.log(`✅ Speed Score: ${metrics.performance}`);
+    }
+    if (report.categories.seo) {
+      metrics.seo = Math.round(report.categories.seo.score * 100);
+    }
+    if (report.categories.accessibility) {
+      metrics.accessibility = Math.round(report.categories.accessibility.score * 100);
+    }
+    if (report.categories['best-practices']) {
+      metrics.bestPractices = Math.round(report.categories['best-practices'].score * 100);
+    }
 
-      // Security and best practices
-      metrics.security = {
-        httpsUsed: targetUrl.startsWith('https://'),
-        mixedContent: report.audits['mixed-content']?.score === 1,
-        noVulnerableLibraries: report.audits['no-vulnerable-libraries']?.score === 1,
-        safeBrowsing: report.audits['safe-browsing']?.score === 1
-      };
+    // Enhanced mobile-friendly checks
+    const viewport = report.audits['viewport'];
+    const tapTargets = report.audits['tap-targets'];
+    const contentWidth = report.audits['content-width'];
+    const fontSizes = report.audits['font-size'];
+    const plugins = report.audits['plugins'];
 
-  } catch (lhError) { 
-      console.log("⚠️ Lighthouse error:", lhError.message); 
+    let mobileIssues = [];
+    let mobileScore = 100;
+
+    // Check viewport meta tag
+    if (!viewport || viewport.score !== 1) {
+      mobileIssues.push("Missing or improper viewport meta tag");
+      mobileScore -= 25;
+    }
+
+    // Check tap targets (minimum 48x48px)
+    if (tapTargets && tapTargets.score < 1) {
+      mobileIssues.push("Tap targets too small for mobile interaction");
+      mobileScore -= 15;
+    }
+
+    // Check content width (no horizontal scrolling)
+    if (contentWidth && contentWidth.score < 1) {
+      mobileIssues.push("Content too wide, causes horizontal scrolling");
+      mobileScore -= 20;
+    }
+
+    // Check font sizes (readable on mobile)
+    if (fontSizes && fontSizes.score < 1) {
+      mobileIssues.push("Text too small to read on mobile");
+      mobileScore -= 10;
+    }
+
+    // Check for plugins (Flash, etc.)
+    if (plugins && plugins.score < 1) {
+      mobileIssues.push("Uses unsupported plugins on mobile");
+      mobileScore -= 10;
+    }
+
+    metrics.mobileFriendly = mobileScore >= 80;
+    metrics.mobileIssues = mobileIssues;
+    metrics.mobileScore = mobileScore;
+
+    // Enhanced technical metrics with comprehensive Lighthouse speed data
+    const fcpAudit = report.audits['first-contentful-paint'];
+    const lcpAudit = report.audits['largest-contentful-paint'];
+    const clsAudit = report.audits['cumulative-layout-shift'];
+    const tbtAudit = report.audits['total-blocking-time'];
+    const siAudit = report.audits['speed-index'];
+    const ttiAudit = report.audits['interactive'];
+    const ttfbAudit = report.audits['server-response-time'];
+    const fidAudit = report.audits['max-potential-fid'];
+    const domSizeAudit = report.audits['dom-size'];
+    const resourceSummary = report.audits['resource-summary'];
+
+    metrics.technical = {
+      // Core Web Vitals - Display values and numeric values
+      firstContentfulPaint: {
+        displayValue: fcpAudit?.displayValue || 'N/A',
+        numericValue: fcpAudit?.numericValue || null,
+        score: fcpAudit?.score || null,
+        unit: 'ms'
+      },
+      largestContentfulPaint: {
+        displayValue: lcpAudit?.displayValue || 'N/A',
+        numericValue: lcpAudit?.numericValue || null,
+        score: lcpAudit?.score || null,
+        unit: 'ms'
+      },
+      cumulativeLayoutShift: {
+        displayValue: clsAudit?.displayValue || 'N/A',
+        numericValue: clsAudit?.numericValue || null,
+        score: clsAudit?.score || null,
+        unit: ''
+      },
+      totalBlockingTime: {
+        displayValue: tbtAudit?.displayValue || 'N/A',
+        numericValue: tbtAudit?.numericValue || null,
+        score: tbtAudit?.score || null,
+        unit: 'ms'
+      },
+      speedIndex: {
+        displayValue: siAudit?.displayValue || 'N/A',
+        numericValue: siAudit?.numericValue || null,
+        score: siAudit?.score || null,
+        unit: 's'
+      },
+      timeToInteractive: {
+        displayValue: ttiAudit?.displayValue || 'N/A',
+        numericValue: ttiAudit?.numericValue || null,
+        score: ttiAudit?.score || null,
+        unit: 's'
+      },
+      // Additional Speed Metrics
+      timeToFirstByte: {
+        displayValue: ttfbAudit?.displayValue || 'N/A',
+        numericValue: ttfbAudit?.numericValue || null,
+        score: ttfbAudit?.score || null,
+        unit: 'ms'
+      },
+      firstInputDelay: {
+        displayValue: fidAudit?.displayValue || 'N/A',
+        numericValue: fidAudit?.numericValue || null,
+        score: fidAudit?.score || null,
+        unit: 'ms'
+      },
+      // Resource Metrics
+      resourceSummary: {
+        totalRequests: resourceSummary?.details?.items?.[0]?.requestCount || null,
+        totalSize: resourceSummary?.details?.items?.[0]?.size || null,
+        displayValue: resourceSummary?.displayValue || 'N/A'
+      },
+      domSize: {
+        displayValue: domSizeAudit?.displayValue || 'N/A',
+        numericValue: domSizeAudit?.numericValue || null,
+        unit: 'nodes'
+      },
+      // Network and Resource Breakdown
+      networkRequests: report.audits['network-requests']?.details?.items?.length || 0,
+      renderBlockingResources: report.audits['render-blocking-resources']?.details?.items?.length || 0,
+      unusedJavaScript: {
+        displayValue: report.audits['unused-javascript']?.displayValue || 'N/A',
+        wastedBytes: report.audits['unused-javascript']?.details?.overallSavingsBytes || 0
+      },
+      unusedCSS: {
+        displayValue: report.audits['unused-css-rules']?.displayValue || 'N/A',
+        wastedBytes: report.audits['unused-css-rules']?.details?.overallSavingsBytes || 0
+      },
+      // Performance Budget
+      totalByteWeight: {
+        displayValue: report.audits['total-byte-weight']?.displayValue || 'N/A',
+        numericValue: report.audits['total-byte-weight']?.numericValue || null,
+        unit: 'bytes'
+      },
+      // Opportunities (Performance improvements)
+      opportunities: {
+        reduceRenderBlockingResources: report.audits['render-blocking-resources']?.displayValue || null,
+        enableTextCompression: report.audits['uses-text-compression']?.displayValue || null,
+        modernImageFormats: report.audits['uses-optimized-images']?.displayValue || null,
+        efficientAnimatedContent: report.audits['efficient-animated-content']?.displayValue || null,
+        preconnectToRequiredOrigins: report.audits['uses-rel-preconnect']?.displayValue || null
+      },
+      // Resource size breakdown by type
+      resourceSizes: analyzeResourceSizes(report)
+    };
+
+    // Security and best practices
+    metrics.security = {
+      httpsUsed: targetUrl.startsWith('https://'),
+      mixedContent: report.audits['mixed-content']?.score === 1,
+      noVulnerableLibraries: report.audits['no-vulnerable-libraries']?.score === 1,
+      safeBrowsing: report.audits['safe-browsing']?.score === 1
+    };
+
+  } catch (lhError) {
+    console.log("⚠️ Lighthouse error:", lhError.message);
   }
 
   // B. Puppeteer (Content & Structure)
   console.log("Step 3: Grabbing HTML via Puppeteer...");
   let html = "";
   try {
-      const browser = await puppeteer.connect({ browserURL: `http://localhost:${chrome.port}` });
-      const page = await browser.newPage();
-      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      html = await page.content();
-      await page.close();
-      browser.disconnect();
-  } catch (pupError) { 
-      console.error("⚠️ Puppeteer error:", pupError.message); 
-      html = "<body><h1>Content unavailable</h1></body>"; 
+    const browser = await puppeteer.connect({ browserURL: `http://localhost:${chrome.port}` });
+    const page = await browser.newPage();
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    html = await page.content();
+    await page.close();
+    browser.disconnect();
+  } catch (pupError) {
+    console.error("⚠️ Puppeteer error:", pupError.message);
+    html = "<body><h1>Content unavailable</h1></body>";
   }
 
   // C. Deep Analysis
   const $ = cheerio.load(html);
   let domain = "site";
-  try { domain = new urlModule.URL(targetUrl).hostname; } catch(e) {}
+  try { domain = new urlModule.URL(targetUrl).hostname; } catch (e) { }
 
   const totalImages = $('img').length;
   const missingAlt = $('img:not([alt])').length;
 
   // Extract detailed link information
   const detailedLinks = extractDetailedLinks($, targetUrl);
-  const socialLinks = detailedLinks.external.filter(link => 
-    link.url.includes('facebook.com') || 
-    link.url.includes('twitter.com') || 
-    link.url.includes('linkedin.com') || 
+  const socialLinks = detailedLinks.external.filter(link =>
+    link.url.includes('facebook.com') ||
+    link.url.includes('twitter.com') ||
+    link.url.includes('linkedin.com') ||
     link.url.includes('instagram.com') ||
     link.url.includes('youtube.com') ||
     link.url.includes('pinterest.com')
   ).map(link => link.url);
-  
+
   const internalLinks = detailedLinks.internalCount;
   const externalLinks = detailedLinks.externalCount;
 
   $('script').remove(); $('style').remove();
   const textContent = $('body').text().replace(/\s+/g, ' ').trim().substring(0, 2500);
   const fullTextContent = $('body').text().replace(/\s+/g, ' ').trim();
-  
+
   // Enhanced content analysis
   const title = $('title').text().trim() || '';
   const description = $('meta[name="description"]').attr('content') || '';
@@ -1661,24 +1666,24 @@ async function scrapeSite(targetUrl) {
   const contentUniqueness = evaluateContentUniqueness(fullTextContent, title, description);
   const readabilityScore = calculateReadability(textContent);
   const keywordIntent = analyzeKeywordIntent(fullTextContent, title, description);
-  
-   // Indexability checks - robots.txt first
-   const robotsTxt = await analyzeRobotsTxt(targetUrl);
-   const metaRobots = analyzeMetaRobots($);
-   // Check sitemap with robots.txt sitemaps included
-   const sitemap = await checkSitemap(targetUrl, robotsTxt.sitemaps || [], $);
-   
-   // Enhanced subpage analysis
-   console.log('Starting subpage analysis...');
-   console.log('Robots data type:', typeof robotsTxt);
-   console.log('Sitemap data type:', typeof sitemap);
-   console.log('Robots has enhanced fields:', !!(robotsTxt?.disallowRules));
-   console.log('Sitemap has enhanced fields:', !!(sitemap?.analyzed));
-   
-   const subpageAnalysis = await checkSubpagePaths(targetUrl, robotsTxt, sitemap);
-   console.log('Subpage analysis completed:', subpageAnalysis ? 'success' : 'failed');
-   console.log('Subpage analysis summary:', subpageAnalysis?.summary);
-  
+
+  // Indexability checks - robots.txt first
+  const robotsTxt = await analyzeRobotsTxt(targetUrl);
+  const metaRobots = analyzeMetaRobots($);
+  // Check sitemap with robots.txt sitemaps included
+  const sitemap = await checkSitemap(targetUrl, robotsTxt.sitemaps || [], $);
+
+  // Enhanced subpage analysis
+  console.log('Starting subpage analysis...');
+  console.log('Robots data type:', typeof robotsTxt);
+  console.log('Sitemap data type:', typeof sitemap);
+  console.log('Robots has enhanced fields:', !!(robotsTxt?.disallowRules));
+  console.log('Sitemap has enhanced fields:', !!(sitemap?.analyzed));
+
+  const subpageAnalysis = await checkSubpagePaths(targetUrl, robotsTxt, sitemap);
+  console.log('Subpage analysis completed:', subpageAnalysis ? 'success' : 'failed');
+  console.log('Subpage analysis summary:', subpageAnalysis?.summary);
+
   // Basic structure first
   const structure = {
     h1: $('h1').text().trim() || "Missing",
@@ -1712,13 +1717,13 @@ async function scrapeSite(targetUrl) {
   for (let i = 1; i <= 6; i++) {
     structure.headings[`h${i}`] = $(`h${i}`).length;
   }
-  
+
   // Complete image analysis with detailed data
   const images = [];
   $('img').each((i, img) => {
     const $img = $(img);
     let src = $img.attr('src') || $img.attr('data-src') || '';
-    
+
     // Convert relative URLs to absolute
     if (src && !src.startsWith('http') && !src.startsWith('//')) {
       try {
@@ -1729,7 +1734,7 @@ async function scrapeSite(targetUrl) {
     } else if (src && src.startsWith('//')) {
       src = 'https:' + src;
     }
-    
+
     images.push({
       src: src,
       alt: $img.attr('alt') || '',
@@ -1741,11 +1746,11 @@ async function scrapeSite(targetUrl) {
       hasDimensions: !!(($img.attr('width') || $img.attr('data-width')) && ($img.attr('height') || $img.attr('data-height')))
     });
   });
-  
+
   // Complete meta tags analysis
   console.log('=== META TAGS ANALYSIS DEBUG ===');
   console.log('Total meta tags found:', $('meta').length);
-  
+
   $('meta').each((i, meta) => {
     const name = $(meta).attr('name') || $(meta).attr('property');
     const content = $(meta).attr('content');
@@ -1756,25 +1761,25 @@ async function scrapeSite(targetUrl) {
       }
     }
   });
-  
+
   console.log('Total meta tags processed:', Object.keys(structure.metaTags).length);
-  
+
   // Complete structured data analysis
   $('script[type="application/ld+json"]').each((i, script) => {
     try {
       structure.structuredData.push(JSON.parse($(script).html()));
-    } catch (e) {}
+    } catch (e) { }
   });
 
   // Hreflang tags analysis
   const hreflang = analyzeHreflang($, targetUrl, html);
-  
+
   // Open Graph analysis
   console.log('=== CALLING analyzeOpenGraph ===');
   console.log('Target URL:', targetUrl);
   console.log('HTML loaded, title:', title);
   console.log('HTML loaded, meta tags count:', $('meta').length);
-  
+
   let openGraph = { found: false, error: 'Not analyzed' };
   try {
     const openGraphData = analyzeOpenGraph($, targetUrl);
@@ -1809,14 +1814,14 @@ async function scrapeSite(targetUrl) {
   };
 
   await chrome.kill();
-  try { fs.rmSync(LOCAL_CHROME_PATH, { recursive: true, force: true }); } catch (e) {}
+  try { fs.rmSync(LOCAL_CHROME_PATH, { recursive: true, force: true }); } catch (e) { }
 
   return { metrics, structure, textContent, domain: targetUrl };
 }
 
 async function getAIAdvice(data) {
   console.log("Step 4: Getting comprehensive AI analysis...");
-  
+
   // Safety check for data structure
   if (!data || !data.metrics) {
     console.error("❌ Invalid data structure passed to getAIAdvice");
@@ -1826,7 +1831,7 @@ async function getAIAdvice(data) {
       recommendations: []
     };
   }
-  
+
   try {
     // Safe template generation with proper error handling
     const performanceScore = data.metrics?.performance || 0;
@@ -1835,7 +1840,7 @@ async function getAIAdvice(data) {
     const bestPracticesScore = data.metrics?.bestPractices || 0;
     const mobileScore = data.metrics?.mobileScore || 0;
     const mobileIssues = data.metrics?.mobileIssues?.length > 0 ? data.metrics.mobileIssues.join(', ') : 'None detected';
-    
+
     const fcp = data.metrics?.technical?.firstContentfulPaint;
     const lcp = data.metrics?.technical?.largestContentfulPaint;
     const cls = data.metrics?.technical?.cumulativeLayoutShift;
@@ -1847,7 +1852,7 @@ async function getAIAdvice(data) {
     const networkRequests = data.metrics?.technical?.networkRequests || 0;
     const renderBlockingResources = data.metrics?.technical?.renderBlockingResources || 0;
     const totalPageWeight = data.metrics?.technical?.totalByteWeight?.displayValue || 'N/A';
-    
+
     const prompt = `
       You are an expert SEO analyst. Analyze this comprehensive website data and provide detailed, actionable recommendations.
       
@@ -2078,20 +2083,20 @@ async function getAIAdvice(data) {
 
     try {
       const completion = await groq.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "llama-3.3-70b-versatile",
-      response_format: { type: "json_object" }
-    });
-    
+        messages: [{ role: "user", content: prompt }],
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" }
+      });
+
       const result = JSON.parse(completion.choices[0].message.content);
       console.log("✅ AI Analysis Complete - Generated detailed recommendations");
-      
+
       return result;
     } catch (e) {
       console.error("❌ AI ERROR:", e.message);
-      return { 
-        health_score: 50, 
-        summary: "AI Analysis Failed", 
+      return {
+        health_score: 50,
+        summary: "AI Analysis Failed",
         recommendations: []
       };
     }
@@ -2122,29 +2127,29 @@ if (process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) 
 // Enhanced API endpoints with comprehensive analysis
 app.post('/api/audit', async (req, res) => {
   const startTime = Date.now();
-  
+
   try {
     let { url, email, includeScreenshot } = req.body;
     if (!url) return res.status(400).json({ error: "URL is required" });
-    
+
     // Auto-fix URL format
     if (!url.startsWith('http')) url = 'https://' + url;
-    
+
     console.log(`🚀 Starting comprehensive SEO audit for: ${url}`);
     const rawData = await scrapeSite(url);
-    
+
     // Validate rawData before passing to AI
     if (!rawData || !rawData.metrics) {
       console.error("❌ Invalid scrapeSite result, missing metrics");
-      return res.status(500).json({ 
-        error: "Website analysis failed - incomplete data", 
+      return res.status(500).json({
+        error: "Website analysis failed - incomplete data",
         timestamp: new Date().toISOString()
       });
     }
-    
+
     const aiReport = await getAIAdvice({ url, ...rawData });
     const auditDuration = Math.round((Date.now() - startTime) / 1000);
-    
+
     const finalReport = {
       url,
       domain: new URL(url).hostname,
@@ -2155,7 +2160,7 @@ app.post('/api/audit', async (req, res) => {
       report: aiReport,
       screenshot: rawData.screenshot
     };
-    
+
     // Send email report if requested
     if (email && transporter) {
       try {
@@ -2165,13 +2170,13 @@ app.post('/api/audit', async (req, res) => {
         console.error("❌ Email sending failed:", emailError.message);
       }
     }
-    
+
     res.json(finalReport);
-    
+
   } catch (error) {
     console.error("❌ AUDIT ERROR:", error);
-    res.status(500).json({ 
-      error: "Comprehensive audit failed", 
+    res.status(500).json({
+      error: "Comprehensive audit failed",
       details: error.message,
       timestamp: new Date().toISOString()
     });
@@ -2204,7 +2209,7 @@ app.get('/api/health', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(`❌ Server Error: ${err.message}`);
-  res.status(500).json({ 
+  res.status(500).json({
     error: err.message,
     timestamp: new Date().toISOString(),
     path: req.path,
@@ -2215,7 +2220,7 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use((req, res, next) => {
-  res.status(404).json({ 
+  res.status(404).json({
     error: 'Not found',
     message: 'API endpoint not found'
   });
@@ -2223,7 +2228,7 @@ app.use((req, res, next) => {
 
 // Default route
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     name: 'Free AI SEO Audit Tool',
     version: '1.0.0',
     description: 'Comprehensive website SEO analysis powered by AI',
@@ -2279,7 +2284,7 @@ async function sendEmailReport(email, url, reportData) {
       <p><em>This is an AI-generated SEO audit. For detailed analysis, please review the full report.</em></p>
     `
   };
-  
+
   await transporter.sendMail(mailOptions);
 }
 
