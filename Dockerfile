@@ -1,5 +1,5 @@
 # Use Node.js 18
-FROM node:18-slim
+FROM node:22-slim
 
 # Install Google Chrome Stable and fonts
 # Required for Puppeteer to work on Linux
